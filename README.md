@@ -26,7 +26,7 @@ TODO:
 
 ## Repository Structure
 ```
-mnist_deblurring
+SequentialBayesianLearning
 +- mmn_seq_gen.py: Contains HHMM that samples a binary sequence.
 +- mmn_sbl.py: Contains Beta-Bernoulli learner for different models
 +- results: contains result images
