@@ -1,10 +1,10 @@
 import argparse
 import numpy as np
 from scipy.special import gamma, digamma
-from mmn_seq_gen import hhmm
+from hhmm_seq_gen import hhmm
 
 
-class BB_SBL():
+class SBL_BB():
     """
     DESCRIPTION:
     INPUT:
@@ -14,9 +14,10 @@ class BB_SBL():
         # Initialize SBL-learned sequence and exponential forgetting parameter
         self.sequence = seq[:, 1]
         self.hidden = seq[:, 0]
-        self.t = 0
         self.T = len(seq)
         self.tau = tau
+
+        self.no_obs = 2
 
         # AP: Generate T-dim vector indicating no-alternation from t-1 to t
         self.repetition = np.zeros(self.T)
@@ -25,48 +26,47 @@ class BB_SBL():
                 self.repetition[t] = 1
 
         # TP: Generate T-dim vectors indicating transition from state i
-        self.transition_from_0 = np.zeros(self.T)
-        self.transition_from_1 = np.zeros(self.T)
+        self.transitions = np.zeros((self.T, self.no_obs))
         for t in range(1, self.T):
-            self.transition_from_0[t] = (self.sequence[t-1] == 0)
-            self.transition_from_1[t] = (self.sequence[t-1] == 1)
+            self.transitions[t, 0] = (self.sequence[t-1] == 0)
+            self.transitions[t, 1] = 1 - self.transitions[t, 0]
 
         # Generate one T matrix with all discounting values
         self.exp_forgetting = np.exp(-self.tau*np.arange(self.T)[::-1])
 
-
     def update_posterior(self, t, type):
         exp_weighting = self.exp_forgetting[-t:]
+
         if type == "SP":
             self.alpha = 1 + np.dot(exp_weighting, self.sequence[:t])
             self.beta = 1 + np.dot(exp_weighting, 1-self.sequence[:t])
         elif type == "AP":
-            self.alpha = 1 + np.dot(exp_weighting, self.repetition[:t])
-            self.beta = 1 + np.dot(exp_weighting, 1-self.repetition[:t])
+            self.alpha = 1 + np.dot(exp_weighting, self.repetition[1:(t+1)])
+            self.beta = 1 + np.dot(exp_weighting, 1-self.repetition[1:(t+1)])
         elif type == "TP":
-            print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])
-            alpha_0 = 1 + np.dot(exp_weighting, self.sequence[:t]*self.transition_from_0[:t])
-            alpha_1 = 1 + np.dot(exp_weighting, self.sequence[:t]*self.transition_from_1[:t])
-            self.alpha = np.array([alpha_0, alpha_1])
+            # print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])
+            self.alpha = np.empty(self.no_obs)
+            self.beta = np.empty(self.no_obs)
 
-            beta_0 = 1 + np.dot(exp_weighting, (1 - self.sequence[:t])*self.transition_from_0[:t])
-            beta_1 = 1 + np.dot(exp_weighting, (1 - self.sequence[:t])*self.transition_from_1[:t])
-            self.beta = np.array([beta_0, beta_1])
+            for i in range(self.no_obs):
+                self.alpha[i] = 1 + np.dot(exp_weighting, self.sequence[:t]*self.transitions[1:(t+1), i])
+                self.beta[i] = 1 + np.dot(exp_weighting, (1 - self.sequence[:t])*self.transitions[1:(t+1), i])
 
     def compute_surprisal(self, type):
-        print("{}: Computing different surprisal measures for all timesteps.".format(type))
+        print("{}: Computing different surprisal measures for all {} timesteps.".format(type, self.T))
 
         results = []
+
         for t in range(2, self.T):
             # Loop over the full sequence and compute surprisal iteratively
             self.update_posterior(t-1, type)
             PS_temp = self.predictive_surprisal(t, type)
             BS_temp = self.bayesian_surprisal(t, type)
             CS_temp = self.corrected_surprisal(t, type)
-            results.append([t, self.sequence[t], self.hidden[t], self.alpha, self.beta, PS_temp, BS_temp, CS_temp])
-
-        print("{}: Done computing surprisal measures for all timesteps.".format(type))
-
+            temp = [t, self.sequence[t], self.hidden[t], PS_temp, BS_temp, CS_temp]
+            distr_params = [item for sublist in [self.alpha.tolist(), self.beta.tolist()] for item in sublist]
+            results.append(temp + distr_params)
+        print("{}: Done computing surprisal measures for all {} timesteps.".format(type, self.T))
         return np.asarray(results)
 
     def predictive_surprisal(self, t, type):
@@ -77,7 +77,11 @@ class BB_SBL():
             PS = -np.log(((self.alpha/(self.alpha + self.beta))**self.repetition[t]) \
                          *((1 - self.alpha/(self.alpha + self.beta))**(1-self.repetition[t])))
         elif type == "TP":
-            PS = 1
+            PS = 0
+            for i in range(self.transitions.shape[1]):
+                PS += -self.transitions[t, i]*\
+                       np.log((self.alpha[i]/(self.alpha[i] + self.beta[i]))**self.sequence[t]*\
+                              (1 - self.alpha[i]/(self.alpha[i] + self.beta[i]))**(1 - self.sequence[t]))
         return PS
 
     def bayesian_surprisal(self, t, type):
@@ -89,9 +93,13 @@ class BB_SBL():
             BS = np.log(gamma(self.alpha + self.beta)/(gamma(self.alpha) * gamma(self.beta))) \
                  - np.log(gamma(self.alpha + self.beta + 1)/(gamma(self.alpha + self.repetition[t]) * gamma(self.beta + 1 - self.repetition[t]))) \
                  - self.repetition[t]*digamma(self.alpha) + (self.repetition[t] - 1)*digamma(self.beta) + digamma(self.alpha + self.beta)
-
         elif type == "TP":
-            BS = 1
+            BS = 0
+            for i in range(self.transitions.shape[1]):
+                BS += self.transitions[t, i]*\
+                      (np.log(gamma(self.alpha[i] + self.beta[i])/(gamma(self.alpha[i]) * gamma(self.beta[i])))\
+                       - np.log(gamma(self.alpha[i] + self.beta[i] + 1)/(gamma(self.alpha[i] + self.sequence[t]) * gamma(self.beta[i] + 1 - self.sequence[t]))) \
+                       - self.sequence[t]*digamma(self.alpha[i]) + (self.sequence[t] - 1)*digamma(self.beta[i]) + digamma(self.alpha[i] + self.beta[i]))
         return BS
 
     def corrected_surprisal(self, t, type):
@@ -106,7 +114,12 @@ class BB_SBL():
                  + (self.beta - 2 + self.repetition[t])*digamma(self.beta) \
                  + (3 - self.alpha - self.beta)*digamma(self.alpha + self.beta)
         elif type == "TP":
-            CS = 1
+            CS = 0
+            for i in range(self.transitions.shape[1]):
+                CS += self.transitions[t, i]*\
+                      (np.log(gamma(self.alpha[i] + self.beta[i])/(gamma(self.alpha[i]) * gamma(self.beta[i])))\
+                       - np.log(2) + (self.alpha[i] - 1 - self.sequence[t])*digamma(self.alpha[i])\
+                       + (self.beta[i] - 2 - self.sequence[t])*digamma(self.beta[i]) +(3 - self.alpha[i] - self.beta[i])*digamma(self.alpha[i] + self.beta[i]))
         return CS
 
 
@@ -119,7 +132,7 @@ def main(prob_regime_init, prob_regime_change,
     hhmm_seq = hhmm_temp.sample_seq(seq_length)[:, [1,2]]
 
     # II: Compute Surprisal for all time steps for Stimulus Prob BB Model
-    BB_SBL_temp = BB_SBL(hhmm_seq, tau)
+    BB_SBL_temp = SBL_BB(hhmm_seq, tau)
     results = BB_SBL_temp.compute_surprisal(model)
 
     if save_results:
@@ -136,15 +149,15 @@ def test_agent(prob_regime_init, prob_regime_change,
     hhmm_seq = hhmm_temp.sample_seq(seq_length)[:, [1,2]]
 
     # Test IIa: Initialize SBL (seq, forgetting param), update posterior (t=3)
-    BB_SBL_temp = BB_SBL(hhmm_seq, tau=0.)
-    BB_SBL_temp.update_posterior(1, "SP")
+    BB_SBL_temp = SBL_BB(hhmm_seq, tau=0.)
+    BB_SBL_temp.update_posterior(1, model)
     print("{}: Beta-Distribution after 1 timestep: alpha = {}, beta = {}".format(model, BB_SBL_temp.alpha, BB_SBL_temp.beta))
     print("---------------------------------------------")
 
     # Test IIb: Compute Surprisal once (SP, t=3)
-    print("{}: Predictive Surprisal at t=2: {}".format(model, BB_SBL_temp.predictive_surprisal(2, "SP")))
-    print("{}: Bayesian Surprisal at t=2: {}".format(model, BB_SBL_temp.bayesian_surprisal(2, "SP")))
-    print("{}: Confidence-Corrected Surprisal at t=2: {}".format(model, BB_SBL_temp.corrected_surprisal(2, "SP")))
+    print("{}: Predictive Surprisal at t=2: {}".format(model, BB_SBL_temp.predictive_surprisal(2, model)))
+    print("{}: Bayesian Surprisal at t=2: {}".format(model, BB_SBL_temp.bayesian_surprisal(2, model)))
+    print("{}: Confidence-Corrected Surprisal at t=2: {}".format(model, BB_SBL_temp.corrected_surprisal(2, model)))
     print("---------------------------------------------")
 
     # Test IIc: Compute Surprisal for all time steps for Stimulus Prob BB Model
@@ -167,6 +180,9 @@ if __name__ == "__main__":
                         help='Exponentially weighting parameter for memory/posterior updating')
     parser.add_argument('-model', '--model', action="store", default="SP", type=str,
                         help='Beta-Bernoulli Probability Model (SP, AP, TP)')
+    parser.add_argument('-T', '--test', action="store_true", help='Run tests.')
+    parser.add_argument('-S', '--save', action="store_true", help='Save results to array.')
+
     args = parser.parse_args()
 
     prob_regime_init = np.array([args.prob_regime_init, 1-args.prob_regime_init])
@@ -178,13 +194,20 @@ if __name__ == "__main__":
     tau = args.forget_param
     model = args.model
 
-    # main(prob_regime_init, prob_regime_change,
-    #      prob_obs_init, prob_obs_change, seq_length,
-    #      tau, model)
+    run_test = args.test
+    save_results = args.save
 
-    test_agent(prob_regime_init, prob_regime_change,
-               prob_obs_init, prob_obs_change, seq_length,
-               tau, model)
+    if run_test:
+        print("Started running basic tests.")
+        test_agent(prob_regime_init, prob_regime_change,
+                   prob_obs_init, prob_obs_change, seq_length,
+                   tau, model)
+
+    else:
+        main(prob_regime_init, prob_regime_change,
+             prob_obs_init, prob_obs_change, seq_length,
+             tau, model, save_results)
+
     """
     python mmn_sbl.py -model SP
     """
