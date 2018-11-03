@@ -75,5 +75,5 @@ if __name__ == "__main__":
         beta_1 = sbl_surprise[:, 9]
 
     # Input Array: [t, obs_t, hidden_t, PS_t, BS_t, CS_t] + [alphas, betas]
-    plot_sequence(time, sequence, hidden, save_pic=True)
-    plot_surprise(time, [predictive_surprisal, bayesian_surprisal, corrected_surprisal], "Surprisal Comparison", save_pic=True)
+    plot_sequence(time, sequence, hidden, save_pic=False)
+    plot_surprise(time, [predictive_surprisal, bayesian_surprisal, corrected_surprisal], "Surprisal Comparison", save_pic=False)

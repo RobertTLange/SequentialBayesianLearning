@@ -1,3 +1,5 @@
 .git
 *.pyc
 mmn_env
+.ipynb_checkpoints
+EEG_ANALYSIS/DATA/

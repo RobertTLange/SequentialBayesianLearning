@@ -14,6 +14,8 @@ class SBL_BB():
         * She calculates different surprise measures as the come in
     INPUT: Binary Sequence and Exponentially Weighted forgetting parameter
     OUTPUT: Predictive surprisal, Bayesian surprisal, Confidence-corrected surprisal
+    [t, o_t, s_t, Prediction_Surprise, Bayesian_Surprise, Confidence_Corrected_Surprise]
+
     """
     def __init__(self, seq, tau):
         # Initialize SBL-learned sequence and exponential forgetting parameter
@@ -68,7 +70,6 @@ class SBL_BB():
 
     def compute_surprisal(self, type):
         print("{}: Computing different surprisal measures for all {} timesteps.".format(type, self.T))
-
         results = []
 
         for t in range(2, self.T):
