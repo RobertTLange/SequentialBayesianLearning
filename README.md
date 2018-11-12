@@ -23,6 +23,7 @@ TODO:
 * [ ] GRW agent modeling the stimulus probability (SP)
 * [ ] GRW agent modeling the alternation probability (AP)
 * [ ] GRW agent modeling the transition probability (TP)
+
 * [ ] GHF agent modeling the stimulus probability (SP)
 * [ ] GHF agent modeling the alternation probability (AP)
 * [ ] GHF agent modeling the transition probability (TP)
@@ -30,10 +31,12 @@ TODO:
 ## Repository Structure
 ```
 SequentialBayesianLearning
-+- mmn_seq_gen.py: Contains HHMM that samples a binary sequence.
-+- mmn_sbl.py: Contains Beta-Bernoulli learner for different models
-+- visualize: Runs gif visualization of learning
-+- results: contains result images
++- hhmm_seq_gen.py: Contains HHMM that samples a binary sequence.
++- sbl_bb.py: Contains Beta-Bernoulli learner for different models
++- sbl_grw.py: Contains Gaussian Random Walk learner for different models
++- visualize.py: Runs gif visualization of learning
++- pics: contains visualizations of results
++- results: contains txt files with suprisal/sequence
 +- README.md: Project Documentation
 +- requirements.txt: list of all required pip packages
 ```
@@ -61,3 +64,18 @@ python mmn_sbl.py -model SP
 python mmn_sbl.py -model AP
 python mmn_sbl.py -model TP
 ```
+
+* Arguments:
+    * -S: to save the results in a txt file
+    * -T: run a few tests to check if module is working
+    * -reg_init: Initial regime probability
+    * -reg_change: Probability of changing regimes
+    * -obs_init: Initial regime probability
+    * -obs_change', '--prob_obs_change', action="store", default=0.25, type=float,
+						help="Probability of changing regime")
+    parser.add_argument('-seq', '--sequence_length', action="store", default=200, type=int,
+						help='Length of binary sequence being processed')
+    parser.add_argument('-tau', '--forget_param', action="store", default=0., type=float,
+                        help='Exponentially weighting parameter for memory/posterior updating')
+    parser.add_argument('-model', '--model', action="store", default="SP", type=str,
+                        help='Beta-Bernoulli Probability Model (SP, AP, TP)')
