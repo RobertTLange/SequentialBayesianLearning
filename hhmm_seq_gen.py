@@ -114,10 +114,10 @@ class hhmm_1st():
     def sample_and_save(self, seq_length, title):
         sequence = self.sample_seq(seq_length)
         sequence_meta = {"sample_output": sequence,
-                             "prob_regime_init": self.prob_regime_init,
-                             "prob_obs_init": self.prob_obs_init,
-                             "prob_obs_change": self.prob_obs_change,
-                             "prob_regime_change": self.prob_regime_change}
+                         "prob_regime_init": self.prob_regime_init,
+                         "prob_obs_init": self.prob_obs_init,
+                         "prob_obs_change": self.prob_obs_change,
+                         "prob_regime_change": self.prob_regime_change}
         save_obj(sequence_meta, results_dir + title)
 
 

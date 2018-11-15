@@ -151,18 +151,36 @@ class SBL_BB():
         return CS
 
 
-def main(seq, hidden, tau, model, save_results):
+def main(seq, hidden, tau, model,
+         prob_regime_init, prob_obs_init, prob_obs_change, prob_regime_change,
+         save_results=False, title="temp"):
     # II: Compute Surprisal for all time steps for Stimulus Prob BB Model
     BB_SBL_temp = SBL_BB(seq, hidden, tau)
     results = BB_SBL_temp.compute_surprisal(model)
 
+    time = results[:,0]
+    sequence = results[:, 1]
+    hidden = results[:, 2]
+    PS = results[:, 2]
+    BS = results[:, 3]
+    CS = results[:, 4]
+
+    results_formatted = {"time": time,
+                         "sequence": sequence,
+                         "hidden": hidden,
+                         "predictive_surprise": PS,
+                         "bayesian_surprise": BS,
+                         "confidence_corrected_surprise":CS,
+                         "prob_regime_init": prob_regime_init,
+                         "prob_obs_init": prob_obs_init,
+                         "prob_obs_change": prob_obs_change,
+                         "prob_regime_change": prob_regime_change}
+
     if save_results:
-        title = "sbl_bb_surprise_" + str(model) + "_" + str(seq_length) + ".txt"
-        np.savetxt(results_dir + title, results)
+        save_obj(results_formatted, results_dir + title)
 
 
-def test_agent(seq, hidden,
-               tau, model):
+def test_agent(seq, hidden, tau, model):
     # Test IIa: Initialize SBL (seq, forgetting param), update posterior (t=3)
     BB_SBL_temp = SBL_BB(seq, hidden, tau=0.)
     BB_SBL_temp.update_posterior(2, model)
@@ -199,6 +217,12 @@ if __name__ == "__main__":
 
     seq = sample["sample_output"][:, 1]
     hidden = sample["sample_output"][:, 0]
+
+    prob_regime_init = sample["prob_regime_init"]
+    prob_obs_init = sample["prob_obs_init"]
+    prob_obs_change = sample["prob_obs_change"]
+    prob_regime_change = sample["prob_regime_change"]
+
     tau = args.forget_param
     model = args.model
 
@@ -210,7 +234,10 @@ if __name__ == "__main__":
         test_agent(seq, hidden, tau, model)
 
     else:
-        main(seq, hidden, tau, model, save_results)
+        main(seq, hidden, tau, model,
+             prob_regime_init, prob_obs_init, prob_obs_change,
+             prob_regime_change,
+             save_results, title="BB_" + model + "_" + args.sample_file)
 
     """
     python mmn_sbl.py -model SP
