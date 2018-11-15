@@ -1,7 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class hhmm():
+import os
+import argparse
+import pickle
+
+results_dir = os.getcwd() + "/results/"
+
+def save_obj(obj, title):
+    with open(title + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+class hhmm_1st():
     """
     DESCRIPTION:
         * 2-Layer Hierarchical Hidden Markov Model
@@ -101,11 +111,48 @@ class hhmm():
         else:
             plt.show()
 
+    def sample_and_save(self, seq_length, title):
+        sequence = self.sample_seq(seq_length)
+        sequence_meta = {"sample_output": sequence,
+                             "prob_regime_init": self.prob_regime_init,
+                             "prob_obs_init": self.prob_obs_init,
+                             "prob_obs_change": self.prob_obs_change,
+                             "prob_regime_change": self.prob_regime_change}
+        save_obj(sequence_meta, results_dir + title)
+
 
 if __name__ == "__main__":
-    hhmm_temp = hhmm(prob_regime_init=np.array([0.5, 0.5]),
-                     prob_regime_change=0.01,
-                     prob_obs_init=np.array([0.5, 0.5, 0]),
-                     prob_obs_change=0.25)
-    hhmm_temp.sample_seq(200)
-    hhmm_temp.plot_sample()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-reg_init', '--prob_regime_init', action="store",
+                        default=0.5, type=float,
+                        help="Initial regime probability")
+    parser.add_argument('-reg_change', '--prob_regime_change', action="store",
+                        default=0.01, type=float,
+                        help="Probability of changing regime")
+    parser.add_argument('-obs_init', '--prob_obs_init', action="store",
+                        default=0.5, type=float,
+                        help="Initial regime probability")
+    parser.add_argument('-obs_change', '--prob_obs_change', action="store",
+                        default=0.25, type=float,
+                        help="Probability of changing regime")
+    parser.add_argument('-t', '--title', action="store",
+                        default="temporary_sample_title", type=str,
+						help='Title of file which stores sequence')
+    parser.add_argument('-seq', '--sequence_length', action="store",
+                        default=200, type=int,
+						help='Length of binary sequence being processed')
+
+
+    args = parser.parse_args()
+
+    prob_regime_init = np.array([args.prob_regime_init, 1-args.prob_regime_init])
+    prob_regime_change = args.prob_regime_change
+    prob_obs_init = np.array([args.prob_obs_init, 1-args.prob_obs_init, 0])
+    prob_obs_change = args.prob_obs_change
+
+    seq_length = args.sequence_length
+    title = args.title
+
+    hhmm_temp = hhmm_1st(prob_regime_init, prob_regime_change,
+                         prob_obs_init, prob_obs_change)
+    hhmm_temp.sample_and_save(seq_length, title)
