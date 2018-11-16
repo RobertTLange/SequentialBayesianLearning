@@ -1,12 +1,23 @@
 import os
 import time
 import argparse
+import pickle
+
 import numpy as np
 from scipy.stats import binom, norm
 from sklearn.metrics import mutual_info_score
-from hhmm_seq_gen import hhmm
 
 results_dir = os.getcwd() + "/results/"
+
+
+def save_obj(obj, title):
+    with open(title + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(title):
+    with open(title, 'rb') as f:
+        return pickle.load(f)
+
 
 class SBL_GRW():
     """
@@ -18,10 +29,10 @@ class SBL_GRW():
     OUTPUT: Predictive surprisal, Bayesian surprisal, Confidence-corrected surprisal
     [t, o_t, s_t, Prediction_Surprise, Bayesian_Surprise, Confidence_Corrected_Surprise]
     """
-    def __init__(self, seq, sigma, s_min, s_max, s_res):
+    def __init__(self, seq, hidden, sigma, s_min, s_max, s_res):
         # Initialize SBL-learned sequence and exponential forgetting parameter
-        self.sequence = seq[:, 1]       # 'observation' sequence from hhmm
-        self.hidden = seq[:, 0]
+        self.sequence = seq
+        self.hidden = hidden
         self.T = len(seq)
 
         self.no_obs = 2
@@ -130,43 +141,47 @@ class SBL_GRW():
 
 
 
-def main(sequence, sigma, s_min, s_max, s_res, model, save_results):
+def main(seq, hidden, sigma, s_min, s_max, s_res, model,
+         prob_regime_init, prob_obs_init, prob_obs_change,
+         prob_regime_change, save_results=False, title="temp"):
     # Compute Surprisal for all time steps for Stimulus Prob BB Model
-    BB_SBL_temp = SBL_GRW(sequence, sigma, s_min, s_max, s_res)
+    BB_SBL_temp = SBL_GRW(seq, hidden, sigma, s_min, s_max, s_res)
     results = BB_SBL_temp.compute_surprisal(model)
 
+    time = results[:,0]
+    sequence = results[:, 1]
+    hidden = results[:, 2]
+    PS = results[:, 2]
+    BS = results[:, 3]
+    CS = results[:, 4]
+
+    results_formatted = {"time": time,
+                         "sequence": sequence,
+                         "hidden": hidden,
+                         "predictive_surprise": PS,
+                         "bayesian_surprise": BS,
+                         "confidence_corrected_surprise":CS,
+                         "prob_regime_init": prob_regime_init,
+                         "prob_obs_init": prob_obs_init,
+                         "prob_obs_change": prob_obs_change,
+                         "prob_regime_change": prob_regime_change}
+
     if save_results:
-        title = "sbl_surprise_" + str(model) + "_" + str(seq_length) + ".txt"
-        np.savetxt(results_dir + title, results)
+        save_obj(results_formatted, results_dir + title)
 
 
 
-def test_agent(prob_regime_init, prob_regime_change,
-               prob_obs_init, prob_obs_change, seq_length,
-               sigma, s_min, s_max, s_res, model):
-    # Test I: Generate binary sequence sampled from HHMM
-    hhmm_temp = hhmm(prob_regime_init, prob_regime_change,
-                     prob_obs_init, prob_obs_change)
-    hhmm_seq = hhmm_temp.sample_seq(seq_length)[:, [1,2]]
-
+def test_agent(seq, hidden, sigma, s_min, s_max, s_res, model):
     # Test IIa: Initialize SBL (seq, forgetting param), update posterior (t=3)
-    GRW_SBL_temp = SBL_GRW(hhmm_seq, sigma, s_min, s_max, s_res)
+    GRW_SBL_temp = SBL_GRW(seq, hidden, sigma, s_min, s_max, s_res)
     GRW_SBL_temp.update_posterior(2, model)
     print("---------------------------------------------")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-reg_init', '--prob_regime_init', action="store", default=0.5, type=float,
-						help="Initial regime probability")
-    parser.add_argument('-reg_change', '--prob_regime_change', action="store", default=0.01, type=float,
-						help="Probability of changing regime")
-    parser.add_argument('-obs_init', '--prob_obs_init', action="store", default=0.5, type=float,
-						help="Initial regime probability")
-    parser.add_argument('-obs_change', '--prob_obs_change', action="store", default=0.25, type=float,
-						help="Probability of changing regime")
-    parser.add_argument('-seq', '--sequence_length', action="store", default=200, type=int,
-						help='Length of binary sequence being processed')
-
+    parser.add_argument('-file', '--sample_file', action="store",
+                        default="temporary_sample_title", type=str,
+                        help='Title of file in which sequence in stored')
     parser.add_argument('-sigma', '--sigma', action="store", default=2.5, type=float,
                         help='Step Size of GRW in latent space')
     parser.add_argument('-s_min', '--space_min', action="store", default=-5, type=float,
@@ -183,12 +198,16 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    prob_regime_init = np.array([args.prob_regime_init, 1-args.prob_regime_init])
-    prob_regime_change = args.prob_regime_change
-    prob_obs_init = np.array([args.prob_obs_init, 1-args.prob_obs_init, 0])
-    prob_obs_change = args.prob_obs_change
+    sample = load_obj(results_dir + args.sample_file + ".pkl")
 
-    seq_length = args.sequence_length
+    seq = sample["sample_output"][:, 2]
+    hidden = sample["sample_output"][:, 1]
+
+    prob_regime_init = sample["prob_regime_init"]
+    prob_obs_init = sample["prob_obs_init"]
+    prob_obs_change = sample["prob_obs_change"]
+    prob_regime_change = sample["prob_regime_change"]
+
     sigma = args.sigma
     s_min = args.space_min
     s_max = args.space_max
@@ -200,11 +219,12 @@ if __name__ == "__main__":
 
     if run_test:
         print("Started running basic tests.")
-        test_agent(prob_regime_init, prob_regime_change,
-                   prob_obs_init, prob_obs_change, seq_length,
-                   sigma, s_min, s_max, s_res, model)
+        test_agent(seq, hidden, sigma, s_min, s_max, s_res, model)
 
     else:
         start = time.time()
-        main(sequence, sigma, s_min, s_max, s_res, model, save_results)
+        main(seq, hidden, sigma, s_min, s_max, s_res, model,
+             prob_regime_init, prob_obs_init, prob_obs_change,
+             prob_regime_change, save_results,
+             title="GRW_" + model + "_" + args.sample_file)
         print("Done after {} secs".format(time.time() - start))

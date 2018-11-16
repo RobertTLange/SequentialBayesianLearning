@@ -1,4 +1,5 @@
 import os
+import pickle
 import numpy as np
 import scipy.stats as ss
 from scipy.special import gamma, digamma
@@ -12,26 +13,35 @@ results_dir = os.getcwd() + "/results/"
 figure_dir = os.getcwd() + "/pics/"
 
 
-def smooth(time_series, degree):
-    """
-    Input I: Time series and smoothing degree
-    Output: Computes moving average for a time series (rets/steps) and order n
-    """
-    ret = np.cumsum(time_series, dtype=float)
-    ret[degree:] = ret[degree:] - ret[:-degree]
-    return ret / degree
+def load_obj(title):
+    with open(title, 'rb') as f:
+        return pickle.load(f)
 
+def plot_sequences(times, sequences, hiddens, subtitles_seq, plot_title,
+                   save_pic=False, file_title="temp.png"):
 
-def plot_sequence(time, sequence, hidden, save_pic=False):
-    plt.scatter(time, sequence, s=0.5, c=hidden)
-    plt.title("HHMM-Sampled Stimulus Sequence for {} Timesteps".format(int(max(time)) + 1))
+    fig, ax = plt.subplots(nrows=len(sequences), ncols=1, figsize=(18, 12))
+    fig.suptitle(plot_title, fontsize=12)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    for i in range(len(sequences)):
+        coloring = []
+        for j in range(len(hiddens[i])):
+            if hiddens[i][j] == 0:
+                coloring += "g"
+            elif hiddens[i][j] == 1:
+                coloring += "b"
+            else:
+                coloring += "r"
+        ax[i].scatter(times[i], sequences[i], s=4.5, c=coloring)
+        ax[i].set_title(subtitles_seq[i])
     if save_pic:
-        plt.savefig(figure_dir + "hhmm_seq.png", dpi=300)
+        plt.savefig(figure_dir + file_title, dpi=300)
     else:
         plt.show()
 
 
-def plot_surprise(time, surprisals, title, degree=1, save_pic=False):
+def plot_surprise(time, surprisals, title, save_pic=False):
 
     colours = ["r", "b", "g"]
     labels = ["Predictive Surprise",
@@ -39,7 +49,6 @@ def plot_surprise(time, surprisals, title, degree=1, save_pic=False):
               "Confidence-Corrected Surprise"]
 
     for i, surprisal in enumerate(surprisals):
-        surprisal = smooth(surprisal, degree)
         plt.plot(time, surprisal, c=colours[i], label=labels[i])
 
     plt.title(title)
@@ -109,7 +118,6 @@ def draw_animation(time, sequence, hidden,
         colours = ["r", "b", "g"]
 
         for i in range(surprisal.shape[1]):
-            #surprisal_temp = smooth(surp[:t], degree=1)
             surprisal_temp = surprisal[:t, i]
             ax[1].plot(time[:t], surprisal_temp, c=colours[i])
 
@@ -167,38 +175,72 @@ def standardize(surprise):
 
 
 if __name__ == "__main__":
-    sbl_surprise_SP = np.loadtxt(results_dir + "sbl_surprise_SP_200.txt")
-    sbl_surprise_AP = np.loadtxt(results_dir + "sbl_surprise_AP_200.txt")
-    sbl_surprise_TP = np.loadtxt(results_dir + "sbl_surprise_TP_200.txt")
 
-    sbl_surprise_SP[np.isinf(sbl_surprise_SP)] = 0
+    files_1st_order = ["1st_5_01_5_10_200.pkl",
+                       "1st_5_01_5_25_200.pkl",
+                       "1st_5_01_5_40_200.pkl"]
 
-    # Unpack array for easier reading
-    time = sbl_surprise_SP[:, 0]
-    sequence = sbl_surprise_SP[:, 1]
-    hidden = sbl_surprise_SP[:, 2]
+    times = []
+    seqs = []
+    hiddens = []
+    probs_regime_init = []
+    probs_obs_init = []
+    probs_obs_change = []
+    probs_regime_change = []
 
-    surprisal_SP = standardize(sbl_surprise_SP[:, 3:6])
-    surprisal_AP = standardize(sbl_surprise_AP[:, 3:6])
-    surprisal_TP = standardize(sbl_surprise_TP[:, 3:6])
+    subtitles_seq = [r"$p_{0|0}^{(0)}=0.1, p_{0|1}^{(0)}=0.9, p_{0|0}^{(1)}=0.9,  p_{0|1}^{(1)}=0.1$",
+                     r"$p_{0|0}^{(0)}=0.25, p_{0|1}^{(0)}=0.75, p_{0|0}^{(1)}=0.75,  p_{0|1}^{(1)}=0.25$",
+                     r"$p_{0|0}^{(0)}=0.4, p_{0|1}^{(0)}=0.6, p_{0|0}^{(1)}=0.6,  p_{0|1}^{(1)}=0.4$"
+                     ]
 
-    if sbl_surprise_SP.shape[1] < 9:
-        alpha = sbl_surprise_SP[:, 6]
-        beta = sbl_surprise_SP[:, 7]
-    else:
-        alpha_0 = sbl_surprise_SP[:, 6]
-        alpha_1 = sbl_surprise_SP[:, 7]
-        beta_0 = sbl_surprise_SP[:, 8]
-        beta_1 = sbl_surprise_SP[:, 9]
+    for file in files_1st_order:
+        sample = load_obj(results_dir + file)
 
-    # Input Array: [t, obs_t, hidden_t, PS_t, BS_t, CS_t] + [alphas, betas]
-    # plot_sequence(time, sequence, hidden, save_pic=False)
-    # plot_surprise(time, [predictive_surprisal, bayesian_surprisal, corrected_surprisal], "Surprisal Comparison", save_pic=False)
+        times.append(sample["sample_output"][:, 0])
+        seqs.append(sample["sample_output"][:, 2])
+        hiddens.append(sample["sample_output"][:, 1])
 
-    plot_final(time, sequence, hidden, [surprisal_SP, surprisal_AP, surprisal_TP],
-               alpha, beta, type="Beta-Bernoulli",
-               save_pic=False)
+        probs_regime_init.append(sample["prob_regime_init"])
+        probs_obs_init.append(sample["prob_obs_init"])
+        probs_obs_change.append(sample["prob_obs_change"])
+        probs_regime_change.append(sample["prob_regime_change"])
 
-    draw_animation(time, sequence, hidden,
-                   surprisal_TP,
-                   alpha, beta, save_pic=True)
+    plot_title = r"1st Order Hierarchical HMM Samples - $p^{reg-init}=0.5, p^{reg-ch} = 0.01, p^{obs-init} = 0.5, p^{catch}=0.05$"
+    plot_sequences(times, seqs, hiddens, subtitles_seq, plot_title,
+                   save_pic=True, file_title="1st_order_seqs")
+
+    # sbl_surprise_SP = np.loadtxt(results_dir + "sbl_surprise_SP_200.txt")
+    # sbl_surprise_AP = np.loadtxt(results_dir + "sbl_surprise_AP_200.txt")
+    # sbl_surprise_TP = np.loadtxt(results_dir + "sbl_surprise_TP_200.txt")
+    #
+    # sbl_surprise_SP[np.isinf(sbl_surprise_SP)] = 0
+    #
+    # # Unpack array for easier reading
+    # time = sbl_surprise_SP[:, 0]
+    # sequence = sbl_surprise_SP[:, 1]
+    # hidden = sbl_surprise_SP[:, 2]
+    #
+    # surprisal_SP = standardize(sbl_surprise_SP[:, 3:6])
+    # surprisal_AP = standardize(sbl_surprise_AP[:, 3:6])
+    # surprisal_TP = standardize(sbl_surprise_TP[:, 3:6])
+    #
+    # if sbl_surprise_SP.shape[1] < 9:
+    #     alpha = sbl_surprise_SP[:, 6]
+    #     beta = sbl_surprise_SP[:, 7]
+    # else:
+    #     alpha_0 = sbl_surprise_SP[:, 6]
+    #     alpha_1 = sbl_surprise_SP[:, 7]
+    #     beta_0 = sbl_surprise_SP[:, 8]
+    #     beta_1 = sbl_surprise_SP[:, 9]
+    #
+    # # Input Array: [t, obs_t, hidden_t, PS_t, BS_t, CS_t] + [alphas, betas]
+    # # plot_sequence(time, sequence, hidden, save_pic=False)
+    # # plot_surprise(time, [predictive_surprisal, bayesian_surprisal, corrected_surprisal], "Surprisal Comparison", save_pic=False)
+    #
+    # plot_final(time, sequence, hidden, [surprisal_SP, surprisal_AP, surprisal_TP],
+    #            alpha, beta, type="Beta-Bernoulli",
+    #            save_pic=False)
+    #
+    # draw_animation(time, sequence, hidden,
+    #                surprisal_TP,
+    #                alpha, beta, save_pic=True)

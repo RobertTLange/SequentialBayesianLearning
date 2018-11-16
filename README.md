@@ -61,23 +61,21 @@ source SBL/bin/activate
 ```
 pip install -r requirements.txt
 ```
-4. Run the different sequential learning agents (e.g. for a seq with length 200):
+4a. Sample a sequence from the Hierarchical HMM
 ```
-python mmn_sbl.py -model SP
-python mmn_sbl.py -model AP
-python mmn_sbl.py -model TP
+pythonw hhmm_seq_gen.py -t 1st_5_01_5_10_200 -obs_change 0.10 0.90 0.90 0.10
+pythonw hhmm_seq_gen.py -t 1st_5_01_5_25_200 -obs_change 0.25 0.75 0.75 0.25
+pythonw hhmm_seq_gen.py -t 1st_5_01_5_40_200 -obs_change 0.40 0.60 0.60 0.40
 ```
 
-* Arguments:
+4b. Run the different sequential learning agents:
+```
+python sbl_bb.py -file first_5_01_5_25_200 -S -model AP
+```
+
+* Arguments to all sbl_*.py files:
     * -S: to save the results in a txt file
     * -T: run a few tests to check if module is working
-    * -reg_init: Initial regime probability
-    * -reg_change: Probability of changing regimes
-    * -obs_init: Initial regime probability
-    * -obs_change', '--prob_obs_change', action="store", default=0.25, type=float,
-						help="Probability of changing regime")
-    parser.add_argument('-seq', '--sequence_length', action="store", default=200, type=int,
-						help='Length of binary sequence being processed')
     parser.add_argument('-tau', '--forget_param', action="store", default=0., type=float,
                         help='Exponentially weighting parameter for memory/posterior updating')
     parser.add_argument('-model', '--model', action="store", default="SP", type=str,

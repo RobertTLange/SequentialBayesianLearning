@@ -215,8 +215,8 @@ if __name__ == "__main__":
 
     sample = load_obj(results_dir + args.sample_file + ".pkl")
 
-    seq = sample["sample_output"][:, 1]
-    hidden = sample["sample_output"][:, 0]
+    seq = sample["sample_output"][:, 2]
+    hidden = sample["sample_output"][:, 1]
 
     prob_regime_init = sample["prob_regime_init"]
     prob_obs_init = sample["prob_obs_init"]
@@ -240,5 +240,7 @@ if __name__ == "__main__":
              save_results, title="BB_" + model + "_" + args.sample_file)
 
     """
-    python mmn_sbl.py -model SP
+    How to run:
+        pythonw hhmm_seq_gen.py -t first_5_01_5_25_200 -seq 200
+        pythonw sbl_bb.py -file first_5_01_5_25_200 -S -model TP
     """
