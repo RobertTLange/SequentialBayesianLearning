@@ -11,12 +11,12 @@ def save_obj(obj, title):
     with open(title + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-class hhmm_1st():
+class hhmm_2nd():
     """
     DESCRIPTION:
         * 2-Layer Hierarchical Hidden Markov Model
         * Can be used to sample sequence of binary observations (0/1)
-        * Transition matrix on lowest level determines alternation of obs states
+        * Transition matrix on lowest level determines alternation of obs states - 2nd order Markovity in emissions! 
     INPUT:
         * prob_regime_init: Initial probability vector for hidden state
         * prob_regime_change: Probability with which hidden state changes
@@ -51,7 +51,7 @@ class hhmm_1st():
             raise ValueError("Arrays must have the same size")
         elif type(self.prob_catch) != float:
             raise ValueError("Arrays must have the same size")
-        elif len(self.prob_obs_change) != self.obs_space**2:
+        elif len(self.prob_obs_change) != 2*self.obs_space**2:
             raise ValueError("Arrays must have the same size")
         else:
             print("All input arrays conform with the specified dimensions.")
@@ -60,29 +60,67 @@ class hhmm_1st():
         A_1 = np.fliplr(np.eye(self.regime_space))
 
         A_2_0 = np.array([
-            [self.prob_obs_change[0] - self.prob_regime_change/2 - self.prob_catch/2,
-             1 - self.prob_obs_change[0] - self.prob_regime_change/2 - self.prob_catch/2,
-             self.prob_catch/2,
-             self.prob_regime_change/2],
-            [self.prob_obs_change[1] - self.prob_regime_change/2 - self.prob_catch/2,
-             1 - self.prob_obs_change[1] - self.prob_regime_change/2 - self.prob_catch/2,
-             self.prob_catch/2,
-             self.prob_regime_change/2]])
+            [self.prob_obs_change[0] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[0] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[1] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[1] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[2] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[2] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[3] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[3] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4]])
         A_2_1 = np.array([
-            [self.prob_obs_change[2] - self.prob_regime_change/2 - self.prob_catch/2,
-             1 - self.prob_obs_change[2] - self.prob_regime_change/2 - self.prob_catch/2,
-             self.prob_catch/2,
-             self.prob_regime_change/2],
-            [self.prob_obs_change[3] - self.prob_regime_change/2 - self.prob_catch/2,
-             1 - self.prob_obs_change[3] - self.prob_regime_change/2 - self.prob_catch/2,
-             self.prob_catch/2,
-             self.prob_regime_change/2]])
+            [self.prob_obs_change[4] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[4] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[5] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[5] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[6] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[6] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4],
+            [self.prob_obs_change[7] - self.prob_regime_change/4 - self.prob_catch/4,
+             1 - self.prob_obs_change[7] - self.prob_regime_change/4 - self.prob_catch/4,
+             self.prob_catch/4,
+             self.prob_regime_change/4]])
 
         print("HHMM correctly initialized. Ready to Sample.")
         transition_matrices = {}
         transition_matrices[0] = A_1
         transition_matrices[1] = [A_2_0, A_2_1]
         return transition_matrices
+
+    def get_sample_idx(self, Q, t_1, t_2):
+        if Q[t_1, 1]==0 and Q[t_2, 1]==0:
+            idx = 0
+        elif Q[t_1, 1]==0 and Q[t_2, 1]==1:
+            idx = 1
+        elif Q[t_1, 1]==1 and Q[t_2, 1]==0:
+            idx = 2
+        elif Q[t_1, 1]==1 and Q[t_2, 1]==1:
+            idx = 3
+        else:
+            if Q[t_1, 1]==2:
+                counter = t_1-1
+                while Q[counter, 1]==2 or Q[counter-1, 1]==2:
+                    counter -= 1
+                idx = self.get_sample_idx(Q, counter, counter-1)
+            elif Q[t_2, 1]==2:
+                counter = t_2-1
+                while Q[counter, 1]==2:
+                    counter -= 1
+                idx = self.get_sample_idx(Q, t_1, counter)
+        return idx
 
     def sample_seq(self, seq_length):
         """
@@ -95,26 +133,22 @@ class hhmm_1st():
             2. Loop through desired time steps
         """
         Q = np.zeros((seq_length, self.D + 1)).astype(int)
-        Q[0, 0] = np.random.multinomial(1, self.prob_regime_init).argmax()
-        Q[0, 1] = np.random.multinomial(1, self.prob_obs_init).argmax()
+        Q[0:2, 0] = np.random.multinomial(2, self.prob_regime_init).argmax()
+        Q[0:2, 1] = np.random.multinomial(2, self.prob_obs_init).argmax()
 
-        act_regime = Q[0, 0]
-        for t in range(1, seq_length):
+        act_regime = Q[1, 0]
+        for t in range(2, seq_length):
             # Sample observed state/trial/stimulus transition
             if Q[t-1, 1] != 2:
                 # Check for catch trial case
-                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][act_regime][Q[t-1, 1], :]).argmax()
-            else:
-                counter = t-1
-                while Q[counter, 1] == 2:
-                    counter -= 1
-                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][act_regime][Q[counter, 1], :]).argmax()
+                idx = self.get_sample_idx(Q, t-1, t-2)
+                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][act_regime][idx, :]).argmax()
 
             # If regime switch is sampled on lower level - resample regime and try again
             while Q[t, 1] == 3:
-                print(1)
                 act_regime = int(np.random.multinomial(1, self.transition_matrices[0][Q[t-1, 0], :]).argmax())
-                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][int(act_regime)][Q[t-1, 1], :]).argmax()
+                idx = self.get_sample_idx(Q, t-1, t-2)
+                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][act_regime][idx, :]).argmax()
 
             # Set active regime to the one which we finally sample
             Q[t, 0] = act_regime
@@ -183,6 +217,10 @@ if __name__ == "__main__":
     seq_length = args.sequence_length
     title = args.title
 
-    hhmm_temp = hhmm_1st(prob_catch, prob_regime_init, prob_regime_change,
+    hhmm_temp = hhmm_2nd(prob_catch, prob_regime_init, prob_regime_change,
                          prob_obs_init, prob_obs_change)
     hhmm_temp.sample_and_save(seq_length, title)
+
+    """
+    pythonw hhmm_2nd_order.py -t 2nd_5_01_5_10_200 -obs_change 0.45 0.45 0.05 0.05 0.05 0.05 0.45 0.45
+    """
