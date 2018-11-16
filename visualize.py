@@ -33,6 +33,7 @@ def plot_sequences(times, sequences, hiddens, subtitles_seq, plot_title,
                 coloring += "b"
             else:
                 coloring += "r"
+
         ax[i].scatter(times[i], sequences[i], s=4.5, c=coloring)
         ax[i].set_title(subtitles_seq[i])
     if save_pic:
@@ -179,7 +180,6 @@ if __name__ == "__main__":
     files_1st_order = ["1st_5_01_5_10_200.pkl",
                        "1st_5_01_5_25_200.pkl",
                        "1st_5_01_5_40_200.pkl"]
-
     times = []
     seqs = []
     hiddens = []
@@ -192,6 +192,7 @@ if __name__ == "__main__":
                      r"$p_{0|0}^{(0)}=0.25, p_{0|1}^{(0)}=0.75, p_{0|0}^{(1)}=0.75,  p_{0|1}^{(1)}=0.25$",
                      r"$p_{0|0}^{(0)}=0.4, p_{0|1}^{(0)}=0.6, p_{0|0}^{(1)}=0.6,  p_{0|1}^{(1)}=0.4$"
                      ]
+    plot_title = r"1st Order Hierarchical HMM Samples - $p^{reg-init}=0.5, p^{reg-ch} = 0.01, p^{obs-init} = 0.5, p^{catch}=0.05$"
 
     for file in files_1st_order:
         sample = load_obj(results_dir + file)
@@ -205,10 +206,72 @@ if __name__ == "__main__":
         probs_obs_change.append(sample["prob_obs_change"])
         probs_regime_change.append(sample["prob_regime_change"])
 
-    plot_title = r"1st Order Hierarchical HMM Samples - $p^{reg-init}=0.5, p^{reg-ch} = 0.01, p^{obs-init} = 0.5, p^{catch}=0.05$"
+
     plot_sequences(times, seqs, hiddens, subtitles_seq, plot_title,
                    save_pic=True, file_title="1st_order_seqs")
 
+    files_2nd_order = ["2nd_5_01_5_10_200.pkl",
+                       "2nd_5_01_5_25_200.pkl",
+                       "2nd_5_01_5_40_200.pkl"]
+    times = []
+    seqs = []
+    hiddens = []
+    probs_regime_init = []
+    probs_obs_init = []
+    probs_obs_change = []
+    probs_regime_change = []
+
+    subtitles_seq = [r"$p_{0|00}^{(0)}=0.45, p_{0|01}^{(0)}=0.45, p_{0|10}^{(0)}=0.05,  p_{0|11}^{(0)}=0.05, p_{0|00}^{(1)}=0.05, p_{0|01}^{(1)}=0.05, p_{0|10}^{(1)}=0.45,  p_{0|11}^{(1)}=0.45$",
+                     r"$p_{0|00}^{(0)}=0.3725, p_{0|01}^{(0)}=0.3725, p_{0|10}^{(0)}=0.125,  p_{0|11}^{(0)}=0.125, p_{0|00}^{(1)}=0.125, p_{0|01}^{(1)}=0.125, p_{0|10}^{(1)}=0.3725,  p_{0|11}^{(1)}=0.3725$",
+                     r"$p_{0|00}^{(0)}=0.3, p_{0|01}^{(0)}=0.3, p_{0|10}^{(0)}=0.2,  p_{0|11}^{(0)}=0.2, p_{0|00}^{(1)}=0.2, p_{0|01}^{(1)}=0.2, p_{0|10}^{(1)}=0.3,  p_{0|11}^{(1)}=0.3$"
+                     ]
+
+    for file in files_2nd_order:
+        sample = load_obj(results_dir + file)
+
+        times.append(sample["sample_output"][:, 0])
+        seqs.append(sample["sample_output"][:, 2])
+        hiddens.append(sample["sample_output"][:, 1])
+
+        probs_regime_init.append(sample["prob_regime_init"])
+        probs_obs_init.append(sample["prob_obs_init"])
+        probs_obs_change.append(sample["prob_obs_change"])
+        probs_regime_change.append(sample["prob_regime_change"])
+
+    plot_title = r"2nd Order Hierarchical HMM Samples - $p^{reg-init}=0.5, p^{reg-ch} = 0.01, p^{obs-init} = 0.5, p^{catch}=0.05$"
+    plot_sequences(times, seqs, hiddens, subtitles_seq, plot_title,
+                   save_pic=True, file_title="2nd_order_seqs_1")
+
+    files_2nd_order_2 = ["2nd_5_01_5_200_2_1.pkl",
+                       "2nd_5_01_5_200_2_2.pkl",
+                       "2nd_5_01_5_200_2_3.pkl"]
+    times = []
+    seqs = []
+    hiddens = []
+    probs_regime_init = []
+    probs_obs_init = []
+    probs_obs_change = []
+    probs_regime_change = []
+
+    subtitles_seq = [r"$p_{0|00}^{(0)}=0.4, p_{0|01}^{(0)}=0.35, p_{0|10}^{(0)}=0.15,  p_{0|11}^{(0)}=0.1, p_{0|00}^{(1)}=0.1, p_{0|01}^{(1)}=0.15, p_{0|10}^{(1)}=0.35,  p_{0|11}^{(1)}=0.4$",
+                     r"$p_{0|00}^{(0)}=0.45, p_{0|01}^{(0)}=0.4, p_{0|10}^{(0)}=0.1,  p_{0|11}^{(0)}=0.05, p_{0|00}^{(1)}=0.05, p_{0|01}^{(1)}=0.1, p_{0|10}^{(1)}=0.4,  p_{0|11}^{(1)}=0.45$",
+                     r"$p_{0|00}^{(0)}=0.6, p_{0|01}^{(0)}=0.3, p_{0|10}^{(0)}=0.075,  p_{0|11}^{(0)}=0.025, p_{0|00}^{(1)}=0.025, p_{0|01}^{(1)}=0.075, p_{0|10}^{(1)}=0.3,  p_{0|11}^{(1)}=0.6$"
+                     ]
+    for file in files_2nd_order:
+        sample = load_obj(results_dir + file)
+
+        times.append(sample["sample_output"][:, 0])
+        seqs.append(sample["sample_output"][:, 2])
+        hiddens.append(sample["sample_output"][:, 1])
+
+        probs_regime_init.append(sample["prob_regime_init"])
+        probs_obs_init.append(sample["prob_obs_init"])
+        probs_obs_change.append(sample["prob_obs_change"])
+        probs_regime_change.append(sample["prob_regime_change"])
+
+    plot_title = r"2nd Order Hierarchical HMM Samples - $p^{reg-init}=0.5, p^{reg-ch} = 0.01, p^{obs-init} = 0.5, p^{catch}=0.05$"
+    plot_sequences(times, seqs, hiddens, subtitles_seq, plot_title,
+                   save_pic=True, file_title="2nd_order_seqs_2")
     # sbl_surprise_SP = np.loadtxt(results_dir + "sbl_surprise_SP_200.txt")
     # sbl_surprise_AP = np.loadtxt(results_dir + "sbl_surprise_AP_200.txt")
     # sbl_surprise_TP = np.loadtxt(results_dir + "sbl_surprise_TP_200.txt")
