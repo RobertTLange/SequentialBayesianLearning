@@ -5,6 +5,8 @@ import os
 import argparse
 import pickle
 
+from scipy.io import savemat
+
 results_dir = os.getcwd() + "/results/"
 
 def save_obj(obj, title):
@@ -16,7 +18,7 @@ class hhmm_2nd():
     DESCRIPTION:
         * 2-Layer Hierarchical Hidden Markov Model
         * Can be used to sample sequence of binary observations (0/1)
-        * Transition matrix on lowest level determines alternation of obs states - 2nd order Markovity in emissions! 
+        * Transition matrix on lowest level determines alternation of obs states - 2nd order Markovity in emissions!
     INPUT:
         * prob_regime_init: Initial probability vector for hidden state
         * prob_regime_change: Probability with which hidden state changes
@@ -172,14 +174,18 @@ class hhmm_2nd():
         else:
             plt.show()
 
-    def sample_and_save(self, seq_length, title):
+    def sample_and_save(self, seq_length, title, matlab_out):
         sequence = self.sample_seq(seq_length)
         sequence_meta = {"sample_output": sequence,
                          "prob_regime_init": self.prob_regime_init,
                          "prob_obs_init": self.prob_obs_init,
                          "prob_obs_change": self.prob_obs_change,
                          "prob_regime_change": self.prob_regime_change}
-        save_obj(sequence_meta, results_dir + title)
+
+        if matlab_out:
+            savemat(results_dir + title, sequence_meta)
+        else:
+            save_obj(sequence_meta, results_dir + title)
 
 
 if __name__ == "__main__":
@@ -204,6 +210,10 @@ if __name__ == "__main__":
     parser.add_argument('-seq', '--sequence_length', action="store",
                         default=200, type=int,
 						help='Length of binary sequence being processed')
+    parser.add_argument('-matlab', '--mat_file_out',
+                        action="store_true",
+                        default=True,
+						help='Save output as a .mat file')
 
 
     args = parser.parse_args()
@@ -216,10 +226,11 @@ if __name__ == "__main__":
 
     seq_length = args.sequence_length
     title = args.title
+    matlab_out = args.mat_file_out
 
     hhmm_temp = hhmm_2nd(prob_catch, prob_regime_init, prob_regime_change,
                          prob_obs_init, prob_obs_change)
-    hhmm_temp.sample_and_save(seq_length, title)
+    hhmm_temp.sample_and_save(seq_length, title, matlab_out)
 
     """
     pythonw hhmm_2nd_order.py -t 2nd_5_01_5_10_200 -obs_change 0.45 0.45 0.05 0.05 0.05 0.05 0.45 0.45

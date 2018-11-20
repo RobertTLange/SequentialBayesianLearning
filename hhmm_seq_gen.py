@@ -11,6 +11,7 @@ def save_obj(obj, title):
     with open(title + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
+
 class hhmm_1st():
     """
     DESCRIPTION:
