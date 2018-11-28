@@ -8,6 +8,8 @@ import argparse
 import pickle
 from scipy.io import savemat
 
+from seq_analysis import *
+
 results_dir = os.getcwd() + "/results/"
 fig_dir = os.getcwd() + "/pics/"
 
@@ -27,15 +29,17 @@ class seq_gen():
         * prob_regime_change: Probability with which hidden state changes
         * prob_obs_init: Initial probability vector for observed state
         * prob_obs_change: Off-diag prob slow regime/On-diag prob fast regime
-        - p^{i}_{o_t=0|o_t-1, o_t-2} - 4 for i=0 and 4 for i=1
-        - p^{i}_{o_t=0|o_t-1=0, o_t-2=0}, p^{i}_{o_t=0|o_t-1=0, o_t-2=1},
-          p^{i}_{o_t=0|o_t-1=1, o_t-2=0}, p^{i}_{o_t=0|o_t-1=1, o_t-2=1}
+        - For 2nd order Markov dependency:
+            - p^{i}_{o_t=0|o_t-1, o_t-2} - 4 for i=0 and 4 for i=1
+            - p^{i}_{o_t=0|o_t-1=0, o_t-2=0}, p^{i}_{o_t=0|o_t-1=0, o_t-2=1},
+              p^{i}_{o_t=0|o_t-1=1, o_t-2=0}, p^{i}_{o_t=0|o_t-1=1, o_t-2=1}
     OUTPUT:
         * sample: A sequence of observed states with length t
     """
     def __init__(self, order, prob_catch,
                  prob_regime_init, prob_regime_change,
-                 prob_obs_init, prob_obs_change):
+                 prob_obs_init, prob_obs_change, verbose):
+        # Initialize parameters of sequence generation instance
         self.order = order
 
         self.obs_space = 2
@@ -47,11 +51,15 @@ class seq_gen():
         self.prob_obs_change = prob_obs_change
         self.prob_regime_change = prob_regime_change
         self.prob_catch = prob_catch
+        self.verbose = verbose
 
+        # Check consistency of length of inputs
         self.check_input_dim()
+        # Construct the transition matrices based on input parameters
         self.transition_matrices = self.construct_transitions()
 
     def check_input_dim(self):
+        # Function checks if the input parameters conform with required shapes
         if len(self.prob_regime_init) != self.regime_space:
             raise ValueError("Initial regime prob vector has wrong dim")
         elif len(self.prob_obs_init) - 1 != self.obs_space:
@@ -63,106 +71,78 @@ class seq_gen():
         elif len(self.prob_obs_change) != 2*self.obs_space**self.order:
             raise ValueError("Need to specify {} probs for emissions".format(2*self.obs_space**self.order))
         else:
-            print("All input arrays conform with the specified dimensions.")
+            if self.verbose:
+                print("All input arrays conform with the specified dimensions.")
 
     def construct_transitions(self):
 
-        if self.order == 1:
-            B_0 = np.array([
-                [self.prob_obs_change[0] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[0] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[1] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[1] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[2] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[2] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[3] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[3] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2]])
-            B_1 = np.array([
-                [self.prob_obs_change[4] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[4] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[5] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[5] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[6] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[6] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2],
-                [self.prob_obs_change[7] - self.prob_regime_change/4 - self.prob_catch/4,
-                 1 - self.prob_obs_change[7] - self.prob_regime_change/4 - self.prob_catch/4,
-                 self.prob_catch/2,
-                 self.prob_regime_change/2]])
+        B_0 = np.zeros((self.obs_space**self.order, self.obs_space + 2))
+        B_1 = np.zeros((self.obs_space**self.order, self.obs_space + 2))
 
-        elif self.order == 2:
-            B_0 = np.array([
-                [self.prob_obs_change[0] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[0] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[1] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[1] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[2] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[2] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[3] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[3] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change]])
-            B_1 = np.array([
-                [self.prob_obs_change[4] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[4] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[5] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[5] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[6] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[6] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change],
-                [self.prob_obs_change[7] - self.prob_regime_change/2 - self.prob_catch/2,
-                 1 - self.prob_obs_change[7] - self.prob_regime_change/2 - self.prob_catch/2,
-                 self.prob_catch,
-                 self.prob_regime_change]])
+        for i in range(B_0.shape[0]):
+            B_0[i, 0] = self.prob_obs_change[i] - self.prob_catch/2 - self.prob_regime_change/2
+            B_0[i, 1] = 1 - self.prob_obs_change[i] - self.prob_catch/2 - self.prob_regime_change/2
+            B_0[i, 2] = self.prob_catch
+            B_0[i, 3] = self.prob_regime_change
 
-        print("HHMM correctly initialized. Ready to Sample.")
+            B_1[i, 0] = self.prob_obs_change[i + B_0.shape[0]] - self.prob_catch/2 - self.prob_regime_change/2
+            B_1[i, 1] = 1 - self.prob_obs_change[i + B_0.shape[0]] - self.prob_catch/2 - self.prob_regime_change/2
+            B_1[i, 2] = self.prob_catch
+            B_1[i, 3] = self.prob_regime_change
+
+        for row in range(B_0.shape[0]):
+            if np.sum(B_0[row, :]) != 1 or np.sum(B_1[row, :]) != 1:
+                raise ValueError("Matrices are not row stochastic")
+
+        if self.verbose:
+            print("HHMM correctly initialized. Ready to Sample.")
+            print(B_0)
+            print(B_1)
+            print("--------------------------------------------")
+            if self.order == 1:
+                print("1st Order Transition Prob. \n Regime 0: p(0|0)={}, p(0|1)={} \n Regime 1: p(1|0)={}, p(1|1)={}".format(*self.prob_obs_change))
+            if self.order == 2:
+                print("2nd Order Transition Prob. \n Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*self.prob_obs_change))
+            print("--------------------------------------------")
         transition_matrices = [B_0, B_1]
         return transition_matrices
 
     def get_sample_idx(self, Q, t_1, t_2):
-        if Q[t_1, 1]==0 and Q[t_2, 1]==0:
-            idx = 0
-        elif Q[t_1, 1]==0 and Q[t_2, 1]==1:
-            idx = 1
-        elif Q[t_1, 1]==1 and Q[t_2, 1]==0:
-            idx = 2
-        elif Q[t_1, 1]==1 and Q[t_2, 1]==1:
-            idx = 3
-        else:
-            if Q[t_1, 1]==2:
-                counter = t_1-1
-                while Q[counter, 1]==2 or Q[counter-1, 1]==2:
-                    counter -= 1
-                idx = self.get_sample_idx(Q, counter, counter-1)
-            elif Q[t_2, 1]==2:
-                counter = t_2-1
-                while Q[counter, 1]==2:
-                    counter -= 1
-                idx = self.get_sample_idx(Q, t_1, counter)
+        """
+
+        """
+        if self.order == 1:
+            if Q[t_1, 1] == 0:
+                idx = 0
+            if Q[t_1, 1] == 1:
+                idx = 1
+            else:
+                if Q[t_1, 1] == 2:
+                    counter = t_1-1
+                    while Q[counter, 1] == s2:
+                        counter -= 1
+                    idx = self.get_sample_idx(Q, counter, counter-1)
+
+        if self.order == 2:
+            if Q[t_1, 1] == 0 and Q[t_2, 1] == 0:
+                idx = 0
+            elif Q[t_1, 1] == 0 and Q[t_2, 1] == 1:
+                idx = 1
+            elif Q[t_1, 1] == 1 and Q[t_2, 1] == 0:
+                idx = 2
+            elif Q[t_1, 1] == 1 and Q[t_2, 1] == 1:
+                idx = 3
+            else:
+                if Q[t_1, 1]==2:
+                    counter = t_1-1
+                    while Q[counter, 1] == 2 or Q[counter-1, 1] == 2:
+                        counter -= 1
+                    idx = self.get_sample_idx(Q, counter, counter-1)
+                elif Q[t_2, 1]==2:
+                    counter = t_2-1
+                    while Q[counter, 1] == 2:
+                        counter -= 1
+                    idx = self.get_sample_idx(Q, t_1, counter)
         return idx
 
     def sample(self, seq_length):
@@ -176,11 +156,13 @@ class seq_gen():
             2. Loop through desired time steps
         """
         Q = np.zeros((seq_length, 2)).astype(int)
-        Q[0:2, 0] = np.random.multinomial(2, self.prob_regime_init).argmax()
-        Q[0:2, 1] = np.random.multinomial(2, self.prob_obs_init).argmax()
+
+        # Sample first states and observations uniformly
+        Q[0:self.order, 0] = np.random.multinomial(self.order, self.prob_regime_init).argmax()
+        Q[0:self.order, 1] = np.random.multinomial(self.order, self.prob_obs_init).argmax()
 
         act_regime = Q[1, 0]
-        for t in range(2, seq_length):
+        for t in range(self.order, seq_length):
             # Sample observed state/trial/stimulus transition
             if Q[t-1, 1] != 2:
                 # Check for catch trial case
@@ -203,61 +185,72 @@ class seq_gen():
         Q = Q.astype(float)
         Q[Q[:, 1] == 2, 1] = 0.5
         # Add column with trial/obs/time
-        self.sample = np.column_stack((np.arange(seq_length), Q))
-        print("Done sampling {} timesteps.".format(seq_length))
-        return self.sample
+        self.sample_seq = np.column_stack((np.arange(seq_length), Q))
+        if self.verbose:
+            calc_stats(self.sample_seq, self.verbose)
+        return self.sample_seq
+
+
+def save(sequence, seq_gen_temp, matlab_out):
+
+    sequence[sequence[:, 2] == 0.5, 2] = 2
+
+    sequence_meta = {"sample_output": sequence,
+                     "prob_regime_init": seq_gen_temp.prob_regime_init,
+                     "prob_obs_init": seq_gen_temp.prob_obs_init,
+                     "prob_obs_change": seq_gen_temp.prob_obs_change,
+                     "prob_regime_change": seq_gen_temp.prob_regime_change}
+
+    if matlab_out:
+        savemat(results_dir + title, sequence_meta)
+    else:
+        save_obj(sequence_meta, results_dir + title)
+    print('Saved data and outfiled file')
+
 
 def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
     sequence = seq_gen_temp.sample(seq_length)
 
-    fig, ax = plt.subplots()
-    coloring = []
-    for j in range(len(sequence[:, 0])):
-        if sequence[j, 1] == 0: coloring += "g"
-        elif sequence[j, 1] == 1: coloring += "b"
-        else: coloring += "r"
+    if plot_seq:
+        fig, ax = plt.subplots()
+        coloring = []
+        for j in range(len(sequence[:, 0])):
+            if sequence[j, 1] == 0: coloring += "g"
+            elif sequence[j, 1] == 1: coloring += "b"
+            else: coloring += "r"
 
-    ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
+        ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
 
-    def save(event, seq_length=seq_length, title=title,
-             sequence=sequence, seq_gen_temp=seq_gen_temp,
-             matlab_out=matlab_out):
+        def plot(event, seq_length=seq_length, title=title,
+                 sequence=sequence, seq_gen_temp=seq_gen_temp,
+                 matlab_out=matlab_out):
 
-        if event.key == 's':
-            event.canvas.figure.savefig(fig_dir + title +'.png', dpi=300)
-            plt.close()
+            if event.key == 's':
+                event.canvas.figure.savefig(fig_dir + title +'.png', dpi=300)
+                plt.close()
 
-            sequence[sequence[:, 2] == 0.5, 2] = 2
+                save(sequence, seq_gen_temp, matlab_out)
 
-            sequence_meta = {"sample_output": sequence,
-                             "prob_regime_init": seq_gen_temp.prob_regime_init,
-                             "prob_obs_init": seq_gen_temp.prob_obs_init,
-                             "prob_obs_change": seq_gen_temp.prob_obs_change,
-                             "prob_regime_change": seq_gen_temp.prob_regime_change}
+            elif event.key == "n":
+                plt.close()
+                sequence = seq_gen_temp.sample(seq_length)
+                fig, ax = plt.subplots()
+                coloring = []
+                for j in range(len(sequence[:, 0])):
+                    if sequence[j, 1] == 0: coloring += "g"
+                    elif sequence[j, 1] == 1: coloring += "b"
+                    else: coloring += "r"
 
-            if matlab_out:
-                savemat(results_dir + title, sequence_meta)
-            else:
-                save_obj(sequence_meta, results_dir + title)
-            print('Saved figure and outfiled file')
+                ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
+                fig.canvas.mpl_connect('key_press_event', plot)
+                plt.show()
 
-        elif event.key == "n":
-            plt.close()
-            sequence = seq_gen_temp.sample(seq_length)
-            fig, ax = plt.subplots()
-            coloring = []
-            for j in range(len(sequence[:, 0])):
-                if sequence[j, 1] == 0: coloring += "g"
-                elif sequence[j, 1] == 1: coloring += "b"
-                else: coloring += "r"
+        fig.canvas.mpl_connect('key_press_event', plot)
+        plt.show()
+    else:
+        save(sequence, seq_gen_temp, matlab_out)
 
-            ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
-            fig.canvas.mpl_connect('key_press_event', save)
-            plt.show()
 
-    fig.canvas.mpl_connect('key_press_event', save)
-
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -272,7 +265,7 @@ if __name__ == "__main__":
                         default=0.5, type=float,
                         help="Initial regime probability")
     parser.add_argument('-obs_change','--prob_obs_change', nargs='+',
-                        help="Probability of changing regime", action="store", type=float)
+                        help="Probability of sampling observations", action="store", type=float)
     parser.add_argument('-catch', '--prob_catch', action="store",
                         default=0.05, type=float,
                         help="Probability of changing regime")
@@ -293,6 +286,10 @@ if __name__ == "__main__":
                         action="store_true",
                         default=False,
 						help='View/Plot the sampled sequence')
+    parser.add_argument('-v', '--verbose',
+                        action="store_true",
+                        default=False,
+						help='Get status printed out')
 
 
     args = parser.parse_args()
@@ -308,11 +305,13 @@ if __name__ == "__main__":
     title = args.title
     matlab_out = args.mat_file_out
     plot_seq = args.plot_seq
+    verbose = args.verbose
 
     gen_temp = seq_gen(order, prob_catch, prob_regime_init, prob_regime_change,
-                       prob_obs_init, prob_obs_change)
-    sample_and_save(gen_temp, seq_length, title, matlab_out, plot_seq)
+                       prob_obs_init, prob_obs_change, verbose)
 
+    # sequence = gen_temp.sample(seq_length)
+    sample_and_save(gen_temp, seq_length, title, matlab_out, plot_seq)
     """
     pythonw seq_gen.py -t 2nd_5_01_5_10_200 -obs_change 0.45 0.45 0.05 0.05 0.05 0.05 0.45 0.45 -order 2 - matlab
     """

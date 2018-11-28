@@ -7,37 +7,11 @@ As the agent parses the individual elements of the sequence she updates her post
 
 ![Alt text](pics/sbl_bb.gif)
 
-The agents include the following:
-
-* Beta-Bernoulli (BB) agent
-* Gaussian Random Walk (GRW) agent
-* Gaussian Hierarchical Filter (GHF) agent
-
-The models include the following:
-
-* [x] BB agent modeling the stimulus probability (SP)
-* [x] BB agent modeling the alternation probability (AP)
-* [x] BB agent modeling the transition probability (TP)
-* [x] GRW agent modeling the stimulus probability (SP)
-* [x] GRW agent modeling the alternation probability (AP)
-
-TODO:
-
-* [ ] GRW agent modeling the transition probability (TP)
-* [ ] GHF agent modeling the stimulus probability (SP)
-* [ ] GHF agent modeling the alternation probability (AP)
-* [ ] GHF agent modeling the transition probability (TP)
-* [ ] Change generation process to include 2nd order Markovity and catch trials
-* [ ] Add passing of input file in hhmm_seq_gen format
-* [ ] Clean up visualization pipeline
-
 ## Repository Structure
 ```
 SequentialBayesianLearning
-+- hhmm_seq_gen.py: Contains HHMM that samples a binary sequence.
-+- sbl_bb.py: Contains Beta-Bernoulli learner for different models
-+- sbl_grw.py: Contains Gaussian Random Walk learner for different models
-+- visualize.py: Runs gif visualization of learning
++- seq_gen.py: Samples sequence according to graphical model
++- seq_analysis.py: Analyze the sampled sequence - get empirical stats
 +- pics: contains visualizations of results
 +- results: contains txt files with suprisal/sequence
 +- README.md: Project Documentation
@@ -61,22 +35,35 @@ source SBL/bin/activate
 ```
 pip install -r requirements.txt
 ```
-4a. Sample a sequence from the Hierarchical HMM
-```
-pythonw hhmm_seq_gen.py -t 1st_5_01_5_10_200 -obs_change 0.10 0.90 0.90 0.10
-pythonw hhmm_seq_gen.py -t 1st_5_01_5_25_200 -obs_change 0.25 0.75 0.75 0.25
-pythonw hhmm_seq_gen.py -t 1st_5_01_5_40_200 -obs_change 0.40 0.60 0.60 0.40
-```
+4. Sample a sequence from the Graphical Model and saves it to .mat file
+    * 1st order Markov sequence of length 800 with following probabilities:
+        * Catch: $p(o_t = "catch") = 0
+        * Regime 0: $p(o_t = 0|o_{t-1}=0) = 0.35, p(o_t|o_{t-1}) = 0.65$
+        * Regime 1: $p(o_t = 0|o_{t-1}=0) = 0.65, p(o_t|o_{t-1}) = 0.35$
+    ```
+    pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 1 -v -seq
+    800
+    ```
 
-4b. Run the different sequential learning agents:
-```
-python sbl_bb.py -file first_5_01_5_25_200 -S -model AP
-```
+    * 2nd order Markov sequence of length 800 with following probabilities:
+        * Regime 0: $p(o_t = 0|o_{t-1}=0, o_{t-1}=0) = 0.35, p(o_t|o_{t-1}) = 0.65$
+        * Regime 1: $p(o_t = 0|o_{t-1}=0) = 0.65, p(o_t|o_{t-1}) = 0.35$
+    ```
+    pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 1 -v -seq
+    800
+    ```
 
-* Arguments to all sbl_*.py files:
-    * -S: to save the results in a txt file
-    * -T: run a few tests to check if module is working
-    parser.add_argument('-tau', '--forget_param', action="store", default=0., type=float,
-                        help='Exponentially weighting parameter for memory/posterior updating')
-    parser.add_argument('-model', '--model', action="store", default="SP", type=str,
-                        help='Beta-Bernoulli Probability Model (SP, AP, TP)')
+* Arguments to all seq_gen.py files - Sampling parameters:
+    - '-reg_init', '--prob_regime_init', default=0.5: Initial regime probability
+    - '-reg_change', '--prob_regime_change', default=0.01: Probability of changing regime
+    - '-obs_init', '--prob_obs_init', default=0.5: Initial regime probability
+    - '-obs_change','--prob_obs_change': Probability of changing regime
+    - '-catch', '--prob_catch', default=0.05: Probability of changing regime
+    - '-seq', '--sequence_length', default=200: Length of binary sequence being processed
+    - '-order', '--markov_order', default=1: Markov dependency on observation level
+
+* Arguments to all seq_gen.py files - Output parameters:
+    - '-t', '--title', default="temporary_sample_title": Title of file which stores sequence'
+    - '-matlab', '--mat_file_out', default=True: Save output as a .mat file
+    - '-p', '--plot_seq', default=False: View/Plot the sampled sequence
+    - '-v', '--verbose': Get status printed out

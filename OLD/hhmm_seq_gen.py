@@ -113,7 +113,6 @@ class hhmm_1st():
 
             # If regime switch is sampled on lower level - resample regime and try again
             while Q[t, 1] == 3:
-                print(1)
                 act_regime = int(np.random.multinomial(1, self.transition_matrices[0][Q[t-1, 0], :]).argmax())
                 Q[t, 1] = np.random.multinomial(1, self.transition_matrices[1][int(act_regime)][Q[t-1, 1], :]).argmax()
 

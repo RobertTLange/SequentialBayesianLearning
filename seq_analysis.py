@@ -8,19 +8,12 @@ import os
 from seq_gen import seq_gen
 
 import dit
-from dit.divergences import kullback_leibler_divergence, jensen_shannon_divergence, cross_entropy
+from dit.divergences import jensen_shannon_divergence
 
 results_dir = os.getcwd() + "/results/"
 fig_dir = os.getcwd() + "/pics/"
 
-order = 2
-prob_regime_init = np.array([0.5, 0.5])
-prob_regime_change = 0.01
-prob_obs_init = np.array([0.5, 0.5, 0])
-prob_catch = 0.05
-
-seq_length = 100000
-
+np.random.seed(222)
 
 # sequence_meta = {"sample_output": sequence,
 #                  "prob_regime_init": seq_gen_temp.prob_regime_init,
@@ -42,6 +35,8 @@ def find_deviants(sequence):
     deviants = np.zeros((sequence.shape[0], 4))
     counter = 1
 
+    regime_switches = 0
+
     for t in range(1, deviants.shape[0]):
         if sequence[t, 2] != sequence[t-1, 2]:
             deviants[t, 0] = sequence[t, 2]
@@ -51,10 +46,14 @@ def find_deviants(sequence):
             counter = 0
         else:
             counter += 1
-    return deviants
+
+        if sequence[t, 1] != 2 and sequence[t-1, 1] != 2:
+            if sequence[t, 1] != sequence[t-1, 1]:
+                regime_switches += 1
+    return deviants, regime_switches
 
 
-def empirical_stand_distr(sequence):
+def calc_stats(sequence, verbose):
     """
     INPUT:
         * sequence - Sequence sampled from seq_gen class
@@ -62,38 +61,85 @@ def empirical_stand_distr(sequence):
         * js_temp - Jensen-Shannon-Divergence between standard-between-dev
                     empirical distributions compared between regimes
     """
-    deviants = find_deviants(sequence)
+
+    sequence_sub = sequence[sequence[:, 2] != 0.5, :]
+    deviants, regime_switches = find_deviants(sequence)
+
+    # Catch trial/regime switch prob
+    catch_prob = len(sequence[sequence[:, 2] == 0.5, 0])/sequence.shape[0]
+    switch_prob = regime_switches/sequence.shape[0]
+
+    stim_prob_overall = len(sequence[sequence[:, 2] == 1, 2])/(len(sequence[sequence[:, 2] == 1, 2]) + len(sequence[sequence[:, 2] == 0, 2]))
+
+    # Filter stimuli based on regime
     reg_0 = deviants[deviants[:, 1] == 0, :]
     reg_1 = deviants[deviants[:, 1] == 1, :]
 
+    # 0th Order Stimulus probability (empirical)
+    stim_prob_reg0 = np.mean(reg_0[:, 0])
+    stim_prob_reg1 = np.mean(reg_1[:, 0])
+
+    if verbose:
+        print("Empirical Probabilities: \n Empirical Catch Prob.: {} \n Empirical Regime Switch Prob.: {} \n Empirical Overall High-Intensity Stimulus Prob.: {} \n Empirical Regime 0 High-Intensity Stimulus Prob.: {} \n Empirical Regime 1 High-Intensity Stimulus Prob.: {}".format(catch_prob, switch_prob, stim_prob_overall, stim_prob_reg0, stim_prob_reg1))
+        print("--------------------------------------------")
+    # 1st Order Transition probability (empirical)
+
+    # 2nd Order Transition probability (empirical)
+
+    # Empirical pmf of standards between deviants for both regimes
     epmf_reg_0 = np.histogram(reg_0[:, 3], bins=int(np.max(reg_0[:, 3])),
                               density=True)
     epmf_reg_1 = np.histogram(reg_1[:, 3], bins=int(np.max(reg_1[:, 3])),
                               density=True)
-
+    # Calculate symmetric Jensen - Shannon divergence
     d1 = dit.ScalarDistribution(epmf_reg_0[1][:-1], epmf_reg_0[0])
     d2 = dit.ScalarDistribution(epmf_reg_1[1][:-1], epmf_reg_1[0])
-    js_temp =jensen_shannon_divergence([d1, d2])
+    js_temp = jensen_shannon_divergence([d1, d2])
     return js_temp, reg_0, reg_1
 
 def main():
-    empirical_stand_distr(sequence)
-    return
+    order = 2
+    prob_regime_init = np.array([0.5, 0.5])
+    prob_obs_init = np.array([0.5, 0.5, 0])
 
-def plot_all(reg_0, reg_1, seq_gen_temp):
-    plt.hist(reg_0[:, 3], density=True, label="Regime 0")
-    plt.hist(reg_1[:, 3], density=True, label="Regime 1")
-    # plt.title(r"$p_{0|00}^{(0)}={}, p_{0|01}^{(0)}=0.{}, p_{0|10}^{(0)}=0.{},  p_{0|11}^{(0)}={}, p_{0|00}^{(1)}={}, p_{0|01}^{(1)}={}, p_{0|10}^{(1)}={},  p_{0|11}^{(1)}={}$".format(seq_gen_temp.prob_obs_change))
-    plt.legend()
-    plt.show()
+    prob_regime_change = 0.01
+    prob_catch = 0.05
 
-if __name__ == "__main__":
-    # main()
+    seq_length = 100000
+
     prob_obs_change = [0.35, 0.35, 0.15, 0.15, 0.15, 0.15, 0.35, 0.35]
+    #prob_obs_change = [0.4, 0.4, 0.1, 0.1, 0.1, 0.1, 0.4, 0.4]
+    #prob_obs_change = [0.45, 0.45, 0.05, 0.05, 0.05, 0.05, 0.45, 0.45]
 
     seq_gen_temp = seq_gen(order, prob_catch, prob_regime_init,
-                           prob_regime_change, prob_obs_init, prob_obs_change)
+                           prob_regime_change, prob_obs_init, prob_obs_change,
+                           verbose=False)
     sequence = seq_gen_temp.sample(seq_length)
 
-    js_temp, reg_0, reg_1 = empirical_stand_distr(sequence)
+    js_temp, reg_0, reg_1 = calc_stats(sequence)
     plot_all(reg_0, reg_1, seq_gen_temp)
+
+    return
+
+
+def plot_all(reg_0, reg_1, seq_gen_temp):
+    fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+    fig.tight_layout()
+
+    for i in range(3):
+        for j in range(3):
+            ax[i, j].hist(reg_0[:, 3], density=True, bins=np.arange(20).tolist(), label="Regime 0", alpha=0.5)
+            ax[i, j].hist(reg_1[:, 3], density=True, bins=np.arange(20).tolist(), label="Regime 1", alpha=0.5)
+            ax[i, j].set_title(" Prob. Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Prob. Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*seq_gen_temp.prob_obs_change), fontsize=6)
+            ax[i, j].legend()
+    plt.show()
+
+
+def draw_dirichlet_params(alphas):
+    if len(alphas) != 8:
+        raise ValueError("Provide correct size of concentration params")
+    return np.random.dirichlet((alphas), 1).transpose()
+
+
+if __name__ == "__main__":
+    main()
