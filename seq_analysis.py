@@ -5,7 +5,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 import os
-from seq_gen import seq_gen
+import argparse
+from seq_gen import *
 
 import dit
 from dit.divergences import jensen_shannon_divergence
@@ -72,12 +73,11 @@ def calc_stats(sequence, verbose):
     stim_prob_overall = len(sequence[sequence[:, 2] == 1, 2])/(len(sequence[sequence[:, 2] == 1, 2]) + len(sequence[sequence[:, 2] == 0, 2]))
 
     # Filter stimuli based on regime
-    reg_0 = deviants[deviants[:, 1] == 0, :]
-    reg_1 = deviants[deviants[:, 1] == 1, :]
+
 
     # 0th Order Stimulus probability (empirical)
-    stim_prob_reg0 = np.mean(reg_0[:, 0])
-    stim_prob_reg1 = np.mean(reg_1[:, 0])
+    stim_prob_reg0 = np.mean(sequence[sequence[:, 1] == 0, 2])
+    stim_prob_reg1 = np.mean(sequence[sequence[:, 1] == 1, 2])
 
     if verbose:
         print("Empirical Probabilities: \n Empirical Catch Prob.: {} \n Empirical Regime Switch Prob.: {} \n Empirical Overall High-Intensity Stimulus Prob.: {} \n Empirical Regime 0 High-Intensity Stimulus Prob.: {} \n Empirical Regime 1 High-Intensity Stimulus Prob.: {}".format(catch_prob, switch_prob, stim_prob_overall, stim_prob_reg0, stim_prob_reg1))
@@ -87,17 +87,20 @@ def calc_stats(sequence, verbose):
     # 2nd Order Transition probability (empirical)
 
     # Empirical pmf of standards between deviants for both regimes
-    epmf_reg_0 = np.histogram(reg_0[:, 3], bins=int(np.max(reg_0[:, 3])),
-                              density=True)
-    epmf_reg_1 = np.histogram(reg_1[:, 3], bins=int(np.max(reg_1[:, 3])),
-                              density=True)
-    # Calculate symmetric Jensen - Shannon divergence
-    d1 = dit.ScalarDistribution(epmf_reg_0[1][:-1], epmf_reg_0[0])
-    d2 = dit.ScalarDistribution(epmf_reg_1[1][:-1], epmf_reg_1[0])
-    js_temp = jensen_shannon_divergence([d1, d2])
-    return js_temp, reg_0, reg_1
+    try:
+        epmf_reg_0 = np.histogram(reg_0[:, 3], bins=int(np.max(reg_0[:, 3])),
+                                  density=True)
+        epmf_reg_1 = np.histogram(reg_1[:, 3], bins=int(np.max(reg_1[:, 3])),
+                                  density=True)
+        # Calculate symmetric Jensen - Shannon divergence
+        d1 = dit.ScalarDistribution(epmf_reg_0[1][:-1], epmf_reg_0[0])
+        d2 = dit.ScalarDistribution(epmf_reg_1[1][:-1], epmf_reg_1[0])
+        js_temp = jensen_shannon_divergence([d1, d2])
+    except:
+        js_temp = None
+    return js_temp
 
-def main():
+def main(order, verbose):
     order = 2
     prob_regime_init = np.array([0.5, 0.5])
     prob_obs_init = np.array([0.5, 0.5, 0])
@@ -107,18 +110,15 @@ def main():
 
     seq_length = 100000
 
-    prob_obs_change = [0.35, 0.35, 0.15, 0.15, 0.15, 0.15, 0.35, 0.35]
-    #prob_obs_change = [0.4, 0.4, 0.1, 0.1, 0.1, 0.1, 0.4, 0.4]
-    #prob_obs_change = [0.45, 0.45, 0.05, 0.05, 0.05, 0.05, 0.45, 0.45]
+    for i in range(1, 10):
+        prob = np.repeat(i*0.1, 2*2**order)
+        seq_gen_temp = seq_gen(order, prob_catch, prob_regime_init,
+                               prob_regime_change, prob_obs_init, prob,
+                               verbose=False)
+        sequence = seq_gen_temp.sample(seq_length)
+        js_temp, reg_0_dev, reg_1_dev = calc_stats(sequence, verbose)
 
-    seq_gen_temp = seq_gen(order, prob_catch, prob_regime_init,
-                           prob_regime_change, prob_obs_init, prob_obs_change,
-                           verbose=False)
-    sequence = seq_gen_temp.sample(seq_length)
-
-    js_temp, reg_0, reg_1 = calc_stats(sequence)
-    plot_all(reg_0, reg_1, seq_gen_temp)
-
+    # plot_all(reg_0, reg_1, seq_gen_temp)
     return
 
 
@@ -142,4 +142,19 @@ def draw_dirichlet_params(alphas):
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-order', '--markov_order', action="store",
+                        default=1, type=int,
+						help='Markov dependency on observation level')
+    parser.add_argument('-v', '--verbose',
+                        action="store_true",
+                        default=False,
+						help='Get status printed out')
+
+    args = parser.parse_args()
+    verbose = args.verbose
+    order = args.markov_order
+
+    main(order, verbose)

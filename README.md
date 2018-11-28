@@ -37,9 +37,14 @@ pip install -r requirements.txt
 ```
 4. Sample a sequence from the Graphical Model and saves it to .mat file
     * 1st order Markov sequence of length 800 with following probabilities:
-        * Catch: $p(o_t = "catch") = 0
-        * Regime 0: $p(o_t = 0|o_{t-1}=0) = 0.35, p(o_t|o_{t-1}) = 0.65$
-        * Regime 1: $p(o_t = 0|o_{t-1}=0) = 0.65, p(o_t|o_{t-1}) = 0.35$
+        * Catch: $p(o_t = "catch") = 0.05$
+        * Regime switch: $p(s_t \neq s_{t-1}) = 0.01$
+        * Regime 0:
+            * $p(o_t = 0|o_{t-1}=0, s_t=0) = 0.35 - 0.05/2 - 0.01/2$
+            * $p(o_t = 1|o_{t-1}=0, s_t=0) = 0.65 - 0.05/2 - 0.01/2$
+        * Regime 1:
+            * $p(o_t = 0|o_{t-1}=0, s_t=1) = 0.65- 0.05/2 - 0.01/2$
+            * $p(o_t = 1|o_{t-1}=0, s_t=1) = 0.35- 0.05/2 - 0.01/2$
     ```
     pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 1 -v -seq
     800
@@ -49,7 +54,7 @@ pip install -r requirements.txt
         * Regime 0: $p(o_t = 0|o_{t-1}=0, o_{t-1}=0) = 0.35, p(o_t|o_{t-1}) = 0.65$
         * Regime 1: $p(o_t = 0|o_{t-1}=0) = 0.65, p(o_t|o_{t-1}) = 0.35$
     ```
-    pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 1 -v -seq
+    pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 2 -v -seq
     800
     ```
 

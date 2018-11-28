@@ -75,7 +75,7 @@ class seq_gen():
                 print("All input arrays conform with the specified dimensions.")
 
     def construct_transitions(self):
-
+        # Function constructs 2-regime transition matrices and checks row-stoch
         B_0 = np.zeros((self.obs_space**self.order, self.obs_space + 2))
         B_1 = np.zeros((self.obs_space**self.order, self.obs_space + 2))
 
@@ -90,41 +90,45 @@ class seq_gen():
             B_1[i, 2] = self.prob_catch
             B_1[i, 3] = self.prob_regime_change
 
-        for row in range(B_0.shape[0]):
-            if np.sum(B_0[row, :]) != 1 or np.sum(B_1[row, :]) != 1:
-                raise ValueError("Matrices are not row stochastic")
+        if (np.sum(B_0, axis=1) != np.ones(B_0.shape[0])).all() or (np.sum(B_1, axis=1) != np.ones(B_1.shape[0])).all():
+            raise ValueError("Matrices are not row stochastic")
 
         if self.verbose:
             print("HHMM correctly initialized. Ready to Sample.")
-            print(B_0)
-            print(B_1)
             print("--------------------------------------------")
             if self.order == 1:
-                print("1st Order Transition Prob. \n Regime 0: p(0|0)={}, p(0|1)={} \n Regime 1: p(1|0)={}, p(1|1)={}".format(*self.prob_obs_change))
+                print("1st Order Transition Prob. \n Regime 0: p(0|0)={}, p(0|1)={} \n Regime 1: p(0|0)={}, p(0|1)={}".format(*self.prob_obs_change))
             if self.order == 2:
                 print("2nd Order Transition Prob. \n Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*self.prob_obs_change))
             print("--------------------------------------------")
-        transition_matrices = [B_0, B_1]
-        return transition_matrices
+
+        # print(B_0)
+        # print(B_1)
+        return [B_0, B_1]
 
     def get_sample_idx(self, Q, t_1, t_2):
         """
-
+        INPUTS: Previous sequence array Q, index of previous time steps obs
+            - Always pass two time steps even if order is one
+        OUTPUT: Markov-order dependent row sampling index for next obs
         """
         if self.order == 1:
             if Q[t_1, 1] == 0:
+                # E.g. prev obs was 0 - sample from row 0 next
                 idx = 0
-            if Q[t_1, 1] == 1:
+            elif Q[t_1, 1] == 1:
                 idx = 1
+            elif Q[t_1, 1] == 2:  # If prev one was catch recurse until not
+                counter = t_1
+                while Q[counter, 1] == 2:
+                    counter -= 1
+                idx = self.get_sample_idx(Q, counter, counter-1)
             else:
-                if Q[t_1, 1] == 2:
-                    counter = t_1-1
-                    while Q[counter, 1] == s2:
-                        counter -= 1
-                    idx = self.get_sample_idx(Q, counter, counter-1)
+                raise ValueError("Wrong index - regime switches != obs!")
 
         if self.order == 2:
             if Q[t_1, 1] == 0 and Q[t_2, 1] == 0:
+                # E.g. prev obs was 0 and before was also 0 - sample row 0 next
                 idx = 0
             elif Q[t_1, 1] == 0 and Q[t_2, 1] == 1:
                 idx = 1
@@ -133,13 +137,13 @@ class seq_gen():
             elif Q[t_1, 1] == 1 and Q[t_2, 1] == 1:
                 idx = 3
             else:
-                if Q[t_1, 1]==2:
-                    counter = t_1-1
+                if Q[t_1, 1] == 2: # If prev one was catch recurse until not
+                    counter = t_1
                     while Q[counter, 1] == 2 or Q[counter-1, 1] == 2:
                         counter -= 1
                     idx = self.get_sample_idx(Q, counter, counter-1)
-                elif Q[t_2, 1]==2:
-                    counter = t_2-1
+                elif Q[t_2, 1]==2: # If prev-prev one was catch recurse until not
+                    counter = t_2
                     while Q[counter, 1] == 2:
                         counter -= 1
                     idx = self.get_sample_idx(Q, t_1, counter)
@@ -160,16 +164,16 @@ class seq_gen():
         # Sample first states and observations uniformly
         Q[0:self.order, 0] = np.random.multinomial(self.order, self.prob_regime_init).argmax()
         Q[0:self.order, 1] = np.random.multinomial(self.order, self.prob_obs_init).argmax()
+        # Set the first active regime
+        act_regime = Q[self.order, 0]
 
-        act_regime = Q[1, 0]
+        # Run sampling over the whole sequence
         for t in range(self.order, seq_length):
-            # Sample observed state/trial/stimulus transition
-            if Q[t-1, 1] != 2:
-                # Check for catch trial case
-                idx = self.get_sample_idx(Q, t-1, t-2)
-                Q[t, 1] = np.random.multinomial(1, self.transition_matrices[act_regime][idx, :]).argmax()
+            # Check if previous trial is catch
+            idx = self.get_sample_idx(Q, t-1, t-2)
+            Q[t, 1] = np.random.multinomial(1, self.transition_matrices[act_regime][idx, :]).argmax()
 
-            # If regime switch is sampled on lower level - resample regime and try again
+            # If regime switch is sampled - switch act_regime and try again
             while Q[t, 1] == 3:
                 if act_regime == 0:
                     act_regime = 1
@@ -181,11 +185,15 @@ class seq_gen():
             # Set active regime to the one which we finally sample
             Q[t, 0] = act_regime
 
+        # Switch hidden state to 2 if catch trial is sampled
         Q[Q[:, 1] == 2, 0] = 2
+        # Change catch trial to 0.5 instead of 2 for nice plotting
         Q = Q.astype(float)
         Q[Q[:, 1] == 2, 1] = 0.5
+
         # Add column with trial/obs/time
         self.sample_seq = np.column_stack((np.arange(seq_length), Q))
+
         if self.verbose:
             calc_stats(self.sample_seq, self.verbose)
         return self.sample_seq
