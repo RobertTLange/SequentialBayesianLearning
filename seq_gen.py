@@ -101,9 +101,6 @@ class seq_gen():
             if self.order == 2:
                 print("2nd Order Transition Prob. \n Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*self.prob_obs_change))
             print("--------------------------------------------")
-
-        # print(B_0)
-        # print(B_1)
         return [B_0, B_1]
 
     def get_sample_idx(self, Q, t_1, t_2):
