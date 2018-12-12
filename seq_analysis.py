@@ -14,13 +14,7 @@ from dit.divergences import jensen_shannon_divergence
 results_dir = os.getcwd() + "/results/"
 fig_dir = os.getcwd() + "/pics/"
 
-np.random.seed(222)
-
-# sequence_meta = {"sample_output": sequence,
-#                  "prob_regime_init": seq_gen_temp.prob_regime_init,
-#                  "prob_obs_init": seq_gen_temp.prob_obs_init,
-#                  "prob_obs_change": seq_gen_temp.prob_obs_change,
-#                  "prob_regime_change": seq_gen_temp.prob_regime_change}
+# np.random.seed(221)
 
 def find_deviants(sequence):
     """
@@ -33,24 +27,33 @@ def find_deviants(sequence):
             - 3rd col : 1 - stim is deviant, 0 - stim is standard
             - 4th col: time since last deviants/number of standards before
     """
-    deviants = np.zeros((sequence.shape[0], 3))
+    deviants = np.zeros((sequence.shape[0], 4))
     counter = 1
 
     regime_switches = 0
 
     for t in range(1, deviants.shape[0]):
+        deviants[t, 0] = sequence[t, 1]    # hidden state
         if sequence[t, 2] != sequence[t-1, 2]:
             # Check for alternation
-            deviants[t, 0] = sequence[t, 1]  # hidden state
-            deviants[t, 1] = 1 # change indicator
+            deviants[t, 1] = 1  # change indicator
             deviants[t, 2] = counter
+            deviants[t-1, 3] = deviants[t, 2] + 1
             counter = 0
         else:
-            counter += 1
+            if sequence[t, 1] != sequence[t - 1, 1]:
+                deviants[t, 2] = counter
+                deviants[t-1, 3] = deviants[t, 2] + 1
+                counter = 0
+            else:
+                counter += 1
 
         if sequence[t, 1] != 2 and sequence[t-1, 1] != 2:
             if sequence[t, 1] != sequence[t-1, 1]:
                 regime_switches += 1
+
+    if t == deviants.shape[0] - 1:
+        deviants[t, 3] = counter + 1
 
     dev_out = deviants[deviants[:, 1] == 1, :]
     return deviants, regime_switches
@@ -61,6 +64,7 @@ def calc_stats(sequence, verbose):
     INPUT:
         * sequence - Sequence sampled from seq_gen class
     OUTPUT:
+        - Summary Statistics:
         * js_temp - Jensen-Shannon-Divergence between standard-between-dev
                     empirical distributions compared between regimes
     """
@@ -78,32 +82,50 @@ def calc_stats(sequence, verbose):
     stim_prob_reg0 = np.mean(sequence[sequence[:, 1] == 0, 2])
     stim_prob_reg1 = np.mean(sequence[sequence[:, 1] == 1, 2])
 
+    # 1st Order Stimulus prob (empirical)
+    alt_prob_reg0 = np.mean(deviants[deviants[:, 0] == 0, 1])
+    alt_prob_reg1 = np.mean(deviants[deviants[:, 0] == 1, 1])
+
     # Empirical pmf of standards between deviants for both regimes
     reg_0_dev = deviants[deviants[:, 0] == 0, :]
     reg_1_dev = deviants[deviants[:, 0] == 1, :]
 
-    epmf_reg_0_dev = np.histogram(reg_0_dev[:, 2],
-                                  bins=int(np.max(reg_0_dev[:, 2])),
-                                  density=True)
-    epmf_reg_1_dev = np.histogram(reg_1_dev[:, 2],
-                                  bins=int(np.max(reg_1_dev[:, 2])),
-                                  density=True)
+    # Average train-length per regime:
+    avg_train_reg0 = (np.sum(deviants[deviants[:, 0] == 0, 3]) / np.count_nonzero(deviants[deviants[:, 0] == 0, 3]))
+    avg_train_reg1 = (np.sum(deviants[deviants[:, 0] == 1, 3]) / np.count_nonzero(deviants[deviants[:, 0] == 1, 3]))
 
-    # Calculate symmetric Jensen - Shannon divergence
-    d1 = dit.ScalarDistribution(epmf_reg_0_dev[1][:-1], epmf_reg_0_dev[0])
-    d2 = dit.ScalarDistribution(epmf_reg_1_dev[1][:-1], epmf_reg_1_dev[0])
-    js_temp = jensen_shannon_divergence([d1, d2])
+    # Time spent in Regimes
+    trials_in_reg0 = deviants[deviants[:, 0] == 0, 0]
+    time_reg0 = trials_in_reg0.shape[0] / deviants.shape[0]
+
+    try:
+        epmf_reg_0_dev = np.histogram(reg_0_dev[:, 2],
+                                      bins=int(np.max(reg_0_dev[:, 2])),
+                                      density=True)
+        epmf_reg_1_dev = np.histogram(reg_1_dev[:, 2],
+                                      bins=int(np.max(reg_1_dev[:, 2])),
+                                      density=True)
+
+        # Calculate symmetric Jensen - Shannon divergence
+        d1 = dit.ScalarDistribution(epmf_reg_0_dev[1][:-1], epmf_reg_0_dev[0])
+        d2 = dit.ScalarDistribution(epmf_reg_1_dev[1][:-1], epmf_reg_1_dev[0])
+        js_temp = jensen_shannon_divergence([d1, d2])
+    except:
+        js_temp = None
 
     if verbose:
-        print("Empirical Probabilities: \n Empirical Catch Prob.: {} \n Empirical Regime Switch Prob.: {} \n Empirical Overall High-Intensity Stimulus Prob.: {} \n Empirical Regime 0 High-Intensity Stimulus Prob.: {} \n Empirical Regime 1 High-Intensity Stimulus Prob.: {} \n JS Div. Deviant Waiting Time Distr. between Regimes: {}".format(catch_prob, switch_prob, stim_prob_overall, stim_prob_reg0, stim_prob_reg1, js_temp))
+        print("Empirical Probabilities: \n Empirical Catch Prob.: {} \n Empirical Regime Switch Prob.: {} \n Empirical Overall High-Intensity Stimulus Prob.: {} \n Empirical Regime 0 High-Intensity Stimulus Prob.: {} \n Empirical Regime 1 High-Intensity Stimulus Prob.: {} \n Empirical Regime 0 Alternation Prob.: {} \n Empirical Regime 1 Alternation Prob.: {}  \n JS Div. Deviant Waiting Time Distr. between Regimes: {} \n Time in Regime 0: {} \n Average Train Length in Regime 0: {} \n Average Train Length in Regime 1: {}".format(catch_prob, switch_prob, stim_prob_overall, stim_prob_reg0, stim_prob_reg1, alt_prob_reg0, alt_prob_reg1, js_temp, time_reg0, avg_train_reg0, avg_train_reg1))
         print("--------------------------------------------")
 
     stats_out = {"emp_catch_prob": catch_prob,
                  "emp_overall_sp": stim_prob_overall,
                  "emp_reg0_sp": stim_prob_reg0,
                  "emp_reg1_sp": stim_prob_reg1,
-                 "js_div": js_temp}
-
+                 "emp_reg0_ap": alt_prob_reg0,
+                 "emp_reg1_ap": alt_prob_reg1,
+                 "js_div": js_temp,
+                 "avg_train_r0": avg_train_reg0,
+                 "avg_train_r1": avg_train_reg1}
     return stats_out, reg_0_dev, reg_1_dev
 
 
@@ -161,7 +183,11 @@ def plot_all(reg_0s, reg_1s, gen_models, stats, order, save):
             # Add extra info as additional lines with label in legend
             ax[i, j].plot([], [], ' ', label="Emp. R0 High-I SP: {}".format(round(stats[counter]["emp_reg0_sp"], 3)))
             ax[i, j].plot([], [], ' ', label="Emp. R1 High-I SP: {}".format(round(stats[counter]["emp_reg1_sp"], 3)))
+            ax[i, j].plot([], [], ' ', label="Emp. R0 AP: {}".format(round(stats[counter]["emp_reg0_ap"], 3)))
+            ax[i, j].plot([], [], ' ', label="Emp. R1 AP: {}".format(round(stats[counter]["emp_reg1_ap"], 3)))
             ax[i, j].plot([], [], ' ', label="JS-Div. Deviants: {}".format(round(stats[counter]["js_div"], 3)))
+            ax[i, j].plot([], [], ' ', label="Avg train R0: {}".format(round(stats[0]["avg_train_r0"], 3)))
+            ax[i, j].plot([], [], ' ', label="Avg train R1: {}".format(round(stats[0]["avg_train_r1"], 3)))
             counter += 1
             ax[i,j].legend()
 

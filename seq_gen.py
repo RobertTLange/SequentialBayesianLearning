@@ -215,16 +215,37 @@ def save(sequence, seq_gen_temp, matlab_out):
 
 def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
     sequence = seq_gen_temp.sample(seq_length)
+    stats, reg_0s, reg_1s = calc_stats(sequence, False)
 
     if plot_seq:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+        fig.tight_layout()
         coloring = []
         for j in range(len(sequence[:, 0])):
             if sequence[j, 1] == 0: coloring += "g"
             elif sequence[j, 1] == 1: coloring += "b"
             else: coloring += "r"
 
-        ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
+        ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring)
+        ax[0].set_title("First 200 Trials of Length {} Block".format(sequence.shape[0]))
+
+        # Add extra info as additional lines with label in legend
+        ax[1].hist(reg_0s[:, 2], density=True, label=r"Regime 0 ($s_t=0$)", alpha=0.5, range=(0, 20), color="g")
+        ax[1].hist(reg_1s[:, 2], density=True, label=r"Regime 1 ($s_t=1$)", alpha=0.5, range=(0, 20), color="b")
+        # Add extra info as additional lines with label in legend
+        ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 0)$: {}".format(round(stats["emp_reg0_sp"], 3)))
+        ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 1)$: {}".format(round(stats["emp_reg1_sp"], 3)))
+        ax[1].plot([], [], ' ', label=r"$p(d_t = 1|s_t = 0)$: {}".format(round(stats["emp_reg0_ap"], 3)))
+        ax[1].plot([], [], ' ', label=r"$p(d_t = 1|s_t = 1)$: {}".format(round(stats["emp_reg1_ap"], 3)))
+        ax[1].plot([], [], ' ', label=r"Avg Train - $s_t=0$: {}".format(round(stats["avg_train_r0"], 3)))
+        ax[1].plot([], [], ' ', label=r"Avg Train - $s_t=1$: {}".format(round(stats["avg_train_r1"], 3)))
+        try:
+            ax[1].plot([], [], ' ', label="JS-Div. Deviants: {}".format(round(stats["js_div"], 3)))
+        except:
+            pass
+        ax[1].legend(ncol=3, fontsize="small")
+        ax[1].set_title("Descriptive Statistics and Train Length Histogram")
+
 
         def plot(event, seq_length=seq_length, title=title,
                  sequence=sequence, seq_gen_temp=seq_gen_temp,
@@ -239,14 +260,35 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
             elif event.key == "n":
                 plt.close()
                 sequence = seq_gen_temp.sample(seq_length)
-                fig, ax = plt.subplots()
+                stats, reg_0s, reg_1s = calc_stats(sequence, False)
+
+                fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+                fig.tight_layout()
                 coloring = []
                 for j in range(len(sequence[:, 0])):
                     if sequence[j, 1] == 0: coloring += "g"
                     elif sequence[j, 1] == 1: coloring += "b"
                     else: coloring += "r"
 
-                ax.scatter(np.arange(seq_length), sequence[:, 2], s=4.5, c=coloring)
+                ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring)
+                ax[0].set_title("First 200 Trials of Length {} Block".format(sequence.shape[0]))
+
+                ax[1].hist(reg_0s[:, 2], density=True, label=r"Regime 0 ($s_t=0$)", alpha=0.5, range=(0, 20), color="g")
+                ax[1].hist(reg_1s[:, 2], density=True, label=r"Regime 1 ($s_t=1$)", alpha=0.5, range=(0, 20), color="b")
+                # Add extra info as additional lines with label in legend
+                ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 0)$: {}".format(round(stats["emp_reg0_sp"], 3)))
+                ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 1)$: {}".format(round(stats["emp_reg1_sp"], 3)))
+                ax[1].plot([], [], ' ', label=r"$p(d_t = 1|s_t = 0)$: {}".format(round(stats["emp_reg0_ap"], 3)))
+                ax[1].plot([], [], ' ', label=r"$p(d_t = 1|s_t = 1)$: {}".format(round(stats["emp_reg1_ap"], 3)))
+                ax[1].plot([], [], ' ', label=r"Avg Train - $s_t=0$: {}".format(round(stats["avg_train_r0"], 3)))
+                ax[1].plot([], [], ' ', label=r"Avg Train - $s_t=1$: {}".format(round(stats["avg_train_r1"], 3)))
+                try:
+                    ax[1].plot([], [], ' ', label="JS-Div. Deviants: {}".format(round(stats["js_div"], 3)))
+                except:
+                    pass
+                ax[1].legend(ncol=3, fontsize="small")
+                ax[1].set_title("Descriptive Statistics and Train Length Histogram")
+
                 fig.canvas.mpl_connect('key_press_event', plot)
                 plt.show()
 
@@ -318,5 +360,5 @@ if __name__ == "__main__":
     # sequence = gen_temp.sample(seq_length)
     sample_and_save(gen_temp, seq_length, title, matlab_out, plot_seq)
     """
-    pythonw seq_gen.py -t 2nd_5_01_5_10_200 -obs_change 0.45 0.45 0.05 0.05 0.05 0.05 0.45 0.45 -order 2 - matlab
+    pythonw seq_gen.py -t 2nd_5_01_5_10_200 -obs_change 0.45 0.45 0.05 0.05 0.05 0.05 0.45 0.45 -order 2 -matlab
     """
