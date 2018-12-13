@@ -8,7 +8,6 @@ import os
 import argparse
 from seq_gen import *
 
-import dit
 from dit.divergences import jensen_shannon_divergence
 
 results_dir = os.getcwd() + "/results/"

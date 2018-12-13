@@ -9,15 +9,10 @@ import pickle
 from scipy.io import savemat
 
 from seq_analysis import *
-
-results_dir = os.getcwd() + "/results/"
-fig_dir = os.getcwd() + "/pics/"
+from helpers import *
 
 mpl.rcParams['keymap.save'] = ''
 
-def save_obj(obj, title):
-    with open(title + '.pkl', 'wb') as f:
-        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 class seq_gen():
     """
