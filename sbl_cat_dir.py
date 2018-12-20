@@ -14,11 +14,13 @@ class SBL_Cat_Dir():
     OUTPUT: Predictive surprisal, Bayesian surprisal, Confidence-corrected surprisal
     [t, o_t, s_t, Prediction_Surprise, Bayesian_Surprise, Confidence_Corrected_Surprise]
     """
-    def __init__(self, seq, hidden, tau, verbose=False):
+    def __init__(self, seq, hidden, tau, model_type="SP", verbose=False):
         # Initialize SBL-learned sequence and exponential forgetting parameter
         self.sequence = seq.astype(int)
         self.hidden = hidden
         self.T = len(seq)
+
+        self.type = model_type
         self.tau = tau
         self.verbose = verbose
 
@@ -45,14 +47,24 @@ class SBL_Cat_Dir():
         # Generate one T matrix with all discounting values
         self.exp_forgetting = np.exp(-self.tau*np.arange(self.T)[::-1])
 
-    def update_posterior(self, type):
+        if self.type == "SP":
+            self.alphas = np.ones(self.no_obs)
+        elif self.type == "AP":
+            self.alphas = np.ones(2)
+        elif self.type == "TP":
+            self.alphas = np.ones((self.no_obs, self.no_obs))
+        else:
+            raise Exception, "Provide right model type (SP, AP, TP)"
+
+
+    def update_posterior(self):
         exp_weighting = self.exp_forgetting[-(self.t+1):]
 
-        if type == "SP":
+        if self.type == "SP":
             for i in range(self.no_obs):
                 self.alphas[i] = 1 + np.dot(exp_weighting, self.stim_ind[:self.t+1, i])
 
-        elif type == "AP":
+        elif self.type == "AP":
             if self.t == 0:
                 print("Can't update posterior with only one observation - need two!")
                 self.alphas[0] = 1
@@ -61,7 +73,7 @@ class SBL_Cat_Dir():
                 self.alphas[0] = 1 + np.dot(exp_weighting, self.repetition[:self.t+1])
                 self.alphas[1] = 1 + np.dot(exp_weighting, 1-self.repetition[:self.t+1])
 
-        elif type == "TP":
+        elif self.type == "TP":
             # print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])
             if self.t == 0:
                 print("Can't update posterior with only one observation - need two!")
@@ -78,64 +90,58 @@ class SBL_Cat_Dir():
     def naive_posterior(self, alphas):
         return self.posterior_predictive(alphas)/self.posterior_predictive(alphas).sum(axis=0)
 
-    def predictive_surprisal(self, type, alphas, ind):
+    def predictive_surprisal(self, alphas, ind):
         return -np.log(self.posterior_predictive(alphas)[ind])
 
-    def bayesian_surprisal(self, type, alphas_old, alphas):
+    def bayesian_surprisal(self, alphas_old, alphas):
         return kl_dir(alphas_old, alphas)
 
-    def corrected_surprisal(self, type, alphas):
+    def corrected_surprisal(self, alphas):
         return kl_dir(self.naive_posterior(alphas), alphas)
 
-    def compute_surprisal(self, type):
-        print("{}: Computing different surprisal measures for all {} timesteps.".format(type, self.T))
+    def compute_surprisal(self, max_T, verbose_surprisal=False):
+        print("{}: Computing different surprisal measures for {} timesteps.".format(self.type, max_T))
         results = []
 
-        if type == "SP":
-            self.alphas = np.ones(self.no_obs)
-        elif type == "AP":
-            self.alphas = np.ones(2)
-        elif type == "TP":
-            self.alphas = np.ones((self.no_obs, self.no_obs))
-        else:
-            raise Exception, "Provide right model type (SP, AP, TP)"
-
-        for t in range(self.T):
+        for t in range(max_T):
             # Loop over the full sequence and compute surprisal iteratively
             alphas_old = self.alphas.copy()
             self.t = t
-            self.update_posterior(type)
+            self.update_posterior()
 
-            if type == "SP":
+            if self.type == "SP":
                 ind = int(self.sequence[self.t])
-            elif type == "AP":
+            elif self.type == "AP":
                 ind = int(self.repetition[self.t])
-            elif type == "TP":
+            elif self.type == "TP":
                 # from and to stimulus transition
                 ind = (np.argmax(self.transitions[self.t, :]), np.argmax(self.stim_ind[self.t, :]))
             else:
                 raise Exception, "Provide right model type (SP, AP, TP)"
 
-            PS_temp = self.predictive_surprisal(type, self.alphas, ind)
-            BS_temp = self.bayesian_surprisal(type, alphas_old, self.alphas)
-            CS_temp = self.corrected_surprisal(type, self.alphas)
-            print(self.alphas)
-            print(alphas_old)
-            print(PS_temp, BS_temp, CS_temp)
+            PS_temp = self.predictive_surprisal(self.alphas, ind)
+            BS_temp = self.bayesian_surprisal(alphas_old, self.alphas)
+            CS_temp = self.corrected_surprisal(self.alphas)
+
+            if verbose_surprisal:
+                print("{} - t={}: PS={}, BS={}, CS={}".format(self.type, t+1, round(PS_temp, 4),  round(BS_temp, 4), round(CS_temp, 4)))
+            # print(self.alphas)
+            # print(alphas_old)
+            # print(PS_temp, BS_temp, CS_temp)
 
             temp = [t, self.sequence[t], self.hidden[t], PS_temp, BS_temp, CS_temp]
             distr_params = list(self.alphas.reshape(1, -1)[0])
             results.append(temp + distr_params)
-        print("{}: Done computing surprisal measures for all {} timesteps.".format(type, self.T))
+        print("{}: Done computing surprisal measures for all {} timesteps.".format(self.type, self.T))
         return np.asarray(results)
 
 
-def main(seq, hidden, tau, model,
+def main(seq, hidden, tau, model_type,
          prob_regime_init, prob_obs_init, prob_obs_change, prob_regime_change,
          save_results=False, title="temp", verbose=False):
     # II: Compute Surprisal for all time steps for Stimulus Prob CatDir Model
-    CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau)
-    results = CD_SBL_temp.compute_surprisal(model)
+    CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau, model_type, verbose)
+    results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T)
 
     time = results[:,0]
     sequence = results[:, 1]
@@ -157,25 +163,22 @@ def main(seq, hidden, tau, model,
 
     if save_results:
         save_obj(results_formatted, results_dir + title)
+        print("Saved in File: {}".format(results_dir + title))
 
 
-def test_agent(seq, hidden, tau, model, verbose=False):
+def test_agent(seq, hidden, tau, model_type, verbose=False):
     # Test IIa: Initialize SBL (seq, forgetting param), update posterior (t=3)
-    CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau=0.)
-    CD_SBL_temp.update_posterior(2, model)
+    CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau=0., model_type=model_type)
     CD_SBL_temp.t = 2
-    print("{}: Dirichlet-Distribution after 2 timestep: alphas = {}".format(model, CD_SBL_temp.alphas))
+    CD_SBL_temp.update_posterior()
     print("---------------------------------------------")
-
+    print("{}: Dirichlet-Distribution after 3 timestep: alphas = {}".format(model_type, CD_SBL_temp.alphas))
     # Test IIb: Compute Surprisal once (SP, t=3)
-    print("{}: Predictive Surprisal at t=3: {}".format(model, CD_SBL_temp.predictive_surprisal()))
-    print("{}: Bayesian Surprisal at t=3: {}".format(model, CD_SBL_temp.bayesian_surprisal()))
-    print("{}: Confidence-Corrected Surprisal at t=3: {}".format(model, BB_SBL_temp.corrected_surprisal()))
-    print("---------------------------------------------")
+    CD_SBL_temp.compute_surprisal(max_T=3, verbose_surprisal=True)
+    # print("---------------------------------------------")
+    # # Test IIc: Compute Surprisal for all time steps for Stimulus Prob BB Model
+    # results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T)
 
-    # Test IIc: Compute Surprisal for all time steps for Stimulus Prob BB Model
-    results = CD_SBL_temp.compute_surprisal(model)
-    print("---------------------------------------------")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -199,9 +202,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.pickle:
-        sample = load_obj(results_dir + args.sample_file + ".pkl", False)
+        sample = load_obj(results_dir + args.sample_file + ".pkl")
     else:
-        sample = load_obj(results_dir + args.sample_file + ".mat", True)
+        sample = load_obj(results_dir + args.sample_file + ".mat")
 
     seq = sample["sample_output"][:, 2]
     hidden = sample["sample_output"][:, 1]

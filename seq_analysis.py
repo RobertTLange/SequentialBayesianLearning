@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 
 import os
 import argparse
-from seq_gen import *
+import seq_gen as seq_g
 
+import dit
 from dit.divergences import jensen_shannon_divergence
 
 results_dir = os.getcwd() + "/results/"
@@ -21,8 +22,8 @@ def find_deviants(sequence):
         * sequence - Sequence sampled from seq_gen class
     OUTPUT:
         * deviants
-            - 1st col: Sequence
-            - 2nd col: Hidden state
+            - 1st col: Hidden state
+            - 2nd col: Alternation indicator
             - 3rd col : 1 - stim is deviant, 0 - stim is standard
             - 4th col: time since last deviants/number of standards before
     """
@@ -98,11 +99,12 @@ def calc_stats(sequence, verbose):
     time_reg0 = trials_in_reg0.shape[0] / deviants.shape[0]
 
     try:
-        epmf_reg_0_dev = np.histogram(reg_0_dev[:, 2],
-                                      bins=int(np.max(reg_0_dev[:, 2])),
+        epmf_reg_0_dev = np.histogram(reg_0_dev[:, 3],
+                                      bins=int(np.max(reg_0_dev[:, 3])),
                                       density=True)
-        epmf_reg_1_dev = np.histogram(reg_1_dev[:, 2],
-                                      bins=int(np.max(reg_1_dev[:, 2])),
+
+        epmf_reg_1_dev = np.histogram(reg_1_dev[:, 3],
+                                      bins=int(np.max(reg_1_dev[:, 3])),
                                       density=True)
 
         # Calculate symmetric Jensen - Shannon divergence
@@ -148,7 +150,7 @@ def main(order, verbose, plot, save):
         elif order == 2:
             prob = [i/2*0.1, i/2*0.1, 1-i/2*0.1, 1-i/2*0.1,
                     1-i/2*0.1, 1-i/2*0.1, i/2*0.1, i/2*0.1]
-        seq_gen_temp = seq_gen(order, prob_catch, prob_regime_init,
+        seq_gen_temp = seq_g.seq_gen(order, prob_catch, prob_regime_init,
                                prob_regime_change, prob_obs_init, prob,
                                verbose=False)
         sequence = seq_gen_temp.sample(seq_length)
@@ -165,7 +167,7 @@ def main(order, verbose, plot, save):
 
 
 def plot_all(reg_0s, reg_1s, gen_models, stats, order, save):
-    fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
+    fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(12, 12), dpi=200)
     fig.tight_layout()
 
     counter = 0
@@ -177,7 +179,7 @@ def plot_all(reg_0s, reg_1s, gen_models, stats, order, save):
             if order == 1:
                 ax[i, j].set_title("R0: p(0|0)={}, p(0|1)={}; R1: p(0|0)={}, p(0|1)={}".format(*gen_models[counter].prob_obs_change), fontsize=8)
             elif order == 2:
-                ax[i, j].set_title(" Prob. Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Prob. Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*gen_models[counter].prob_obs_change), fontsize=4)
+                ax[i, j].set_title(" Prob. Regime 0: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={} \n Prob. Regime 1: p(0|00)={}, p(0|01)={}, p(0|10)={},  p(0|11)={}".format(*gen_models[counter].prob_obs_change), fontsize=7)
 
             # Add extra info as additional lines with label in legend
             ax[i, j].plot([], [], ' ', label="Emp. R0 High-I SP: {}".format(round(stats[counter]["emp_reg0_sp"], 3)))
@@ -204,12 +206,6 @@ def plot_all(reg_0s, reg_1s, gen_models, stats, order, save):
         plt.savefig("data_gen_comparison_" + str(order) + ".png", dpi=300)
     else:
         plt.show()
-
-
-def draw_dirichlet_params(alphas):
-    if len(alphas) != 8:
-        raise ValueError("Provide correct size of concentration params")
-    return np.random.dirichlet((alphas), 1).transpose()
 
 
 if __name__ == "__main__":

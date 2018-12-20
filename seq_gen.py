@@ -213,7 +213,7 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
     stats, reg_0s, reg_1s = calc_stats(sequence, False)
 
     if plot_seq:
-        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8), dpi=300)
         fig.tight_layout()
         coloring = []
         for j in range(len(sequence[:, 0])):
@@ -257,7 +257,7 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
                 sequence = seq_gen_temp.sample(seq_length)
                 stats, reg_0s, reg_1s = calc_stats(sequence, False)
 
-                fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+                fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8), dpi=300)
                 fig.tight_layout()
                 coloring = []
                 for j in range(len(sequence[:, 0])):
