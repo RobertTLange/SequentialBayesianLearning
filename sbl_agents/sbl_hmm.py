@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import math
 from hmmlearn import hmm
-from helpers import *
+from utils.helpers import *
 
 
 def hmm_action_selection(model, state_seq, sample=False):
@@ -89,7 +89,7 @@ class SBL_HMM():
         elif self.type == "TP":
             self.posterior = np.ones((self.no_obs, self.no_obs))/self.no_obs
         else:
-            raise Exception, "Provide right model type (SP, AP, TP)"
+            raise "Provide right model type (SP, AP, TP)"
 
 
     def update_posterior_old(self):
@@ -195,7 +195,7 @@ class SBL_HMM():
                 # from and to stimulus transition
                 ind = (np.argmax(self.transitions[self.t, :]), np.argmax(self.stim_ind[self.t, :]))
             else:
-                raise Exception, "Provide right model type (SP, AP, TP)"
+                raise "Provide right model type (SP, AP, TP)"
 
             PS_temp = self.predictive_surprisal(posterior, ind)
             BS_temp = self.bayesian_surprisal(posterior_old, posterior)

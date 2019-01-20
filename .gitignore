@@ -3,6 +3,7 @@
 *.pyc
 __pycache__
 .texpadtmp
-/data
-/logs
+data
+OLD
+logs
 *.pem

@@ -1,7 +1,7 @@
 import os
 import argparse
 import numpy as np
-from helpers import *
+from utils.helpers import *
 
 
 class SBL_Cat_Dir():
@@ -54,7 +54,7 @@ class SBL_Cat_Dir():
         elif self.type == "TP":
             self.alphas = np.ones((self.no_obs, self.no_obs))
         else:
-            raise Exception, "Provide right model type (SP, AP, TP)"
+            raise "Provide right model type (SP, AP, TP)"
 
 
     def update_posterior(self):
@@ -117,7 +117,7 @@ class SBL_Cat_Dir():
                 # from and to stimulus transition
                 ind = (np.argmax(self.transitions[self.t, :]), np.argmax(self.stim_ind[self.t, :]))
             else:
-                raise Exception, "Provide right model type (SP, AP, TP)"
+                raise "Provide right model type (SP, AP, TP)"
 
             PS_temp = self.predictive_surprisal(self.alphas, ind)
             BS_temp = self.bayesian_surprisal(alphas_old, self.alphas)
@@ -137,33 +137,36 @@ class SBL_Cat_Dir():
 
 
 def main(seq, hidden, tau, model_type,
-         prob_regime_init, prob_obs_init, prob_obs_change, prob_regime_change,
+         prob_regime_init=None, prob_obs_init=None,
+         prob_obs_change=None, prob_regime_change=None,
          save_results=False, title="temp", verbose=False):
     # II: Compute Surprisal for all time steps for Stimulus Prob CatDir Model
     CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau, model_type, verbose)
     results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T)
 
-    time = results[:,0]
+    time = results[:, 0]
     sequence = results[:, 1]
     hidden = results[:, 2]
     PS = results[:, 2]
     BS = results[:, 3]
     CS = results[:, 4]
 
-    results_formatted = {"time": time,
-                         "sequence": sequence,
-                         "hidden": hidden,
-                         "predictive_surprise": PS,
-                         "bayesian_surprise": BS,
-                         "confidence_corrected_surprise": CS,
-                         "prob_regime_init": prob_regime_init,
-                         "prob_obs_init": prob_obs_init,
-                         "prob_obs_change": prob_obs_change,
-                         "prob_regime_change": prob_regime_change}
-
     if save_results:
+        results_formatted = {"time": time,
+                             "sequence": sequence,
+                             "hidden": hidden,
+                             "predictive_surprise": PS,
+                             "bayesian_surprise": BS,
+                             "confidence_corrected_surprise": CS,
+                             "prob_regime_init": prob_regime_init,
+                             "prob_obs_init": prob_obs_init,
+                             "prob_obs_change": prob_obs_change,
+                             "prob_regime_change": prob_regime_change}
+
         save_obj(results_formatted, results_dir + title)
         print("Saved in File: {}".format(results_dir + title))
+    else:
+        return PS, BS, CS
 
 
 def test_agent(seq, hidden, tau, model_type, verbose=False):
