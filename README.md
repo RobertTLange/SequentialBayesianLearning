@@ -36,7 +36,14 @@ source SBL/bin/activate
 ```
 pip install -r requirements.txt
 ```
-4. Sample a sequence from the Graphical Model and saves it to .mat file
+4. Run the main workspace notebook:
+```
+jupyter notebook workspace.ipynb
+```
+
+
+## Running the individual scripts
+1. Sample a sequence from the Graphical Model and saves it to .mat file
     * 1st order Markov sequence of length 800 with following probabilities:
     ```
     pythonw seq_gen.py -t 1st_temp -reg_init 0.5 -reg_change 0.01 -catch 0.05 -obs_init 0.5 -obs_change 0.35 0.65 0.65 0.35 -order 1 -v -seq
@@ -48,17 +55,21 @@ pip install -r requirements.txt
     800
     ```
 
-* Arguments to all seq_gen.py files - Sampling parameters:
-    - '-reg_init', '--prob_regime_init', default=0.5: Initial regime probability
-    - '-reg_change', '--prob_regime_change', default=0.01: Probability of changing regime
-    - '-obs_init', '--prob_obs_init', default=0.5: Initial regime probability
-    - '-obs_change','--prob_obs_change': Probability of changing regime
-    - '-catch', '--prob_catch', default=0.05: Probability of changing regime
-    - '-seq', '--sequence_length', default=200: Length of binary sequence being processed
-    - '-order', '--markov_order', default=1: Markov dependency on observation level
+    * Arguments to all seq_gen.py files - Sampling parameters:
+        - '-reg_init', '--prob_regime_init', default=0.5: Initial regime probability
+        - '-reg_change', '--prob_regime_change', default=0.01: Probability of changing regime
+        - '-obs_init', '--prob_obs_init', default=0.5: Initial regime probability
+        - '-obs_change','--prob_obs_change': Probability of changing regime
+        - '-catch', '--prob_catch', default=0.05: Probability of changing regime
+        - '-seq', '--sequence_length', default=200: Length of binary sequence being processed
+        - '-order', '--markov_order', default=1: Markov dependency on observation level
 
-* Arguments to all seq_gen.py files - Output parameters:
-    - '-t', '--title', default="temporary_sample_title": Title of file which stores sequence'
-    - '-matlab', '--mat_file_out', default=True: Save output as a .mat file
-    - '-p', '--plot_seq', default=False: View/Plot the sampled sequence
-    - '-v', '--verbose': Get status printed out
+    * Arguments to all seq_gen.py files - Output parameters:
+        - '-t', '--title', default="temporary_sample_title": Title of file which stores sequence'
+        - '-matlab', '--mat_file_out', default=True: Save output as a .mat file
+        - '-p', '--plot_seq', default=False: View/Plot the sampled sequence
+        - '-v', '--verbose': Get status printed out
+2. Run Categorical Dirichlet Surprise Models/SBL Agents
+```
+pythonw sbl_cat_dir.py -file S1_800 -S -model SP
+```

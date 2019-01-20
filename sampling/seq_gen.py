@@ -8,8 +8,8 @@ import argparse
 import pickle
 from scipy.io import savemat
 
-from seq_analysis import *
-from helpers import *
+from sampling.seq_analysis import *
+from utils.helpers import *
 
 mpl.rcParams['keymap.save'] = ''
 
@@ -35,7 +35,7 @@ class seq_gen():
                  prob_regime_init, prob_regime_change,
                  prob_obs_init, prob_obs_change, verbose):
         # Initialize parameters of sequence generation instance
-        self.order = order
+        self.order = int(order)
 
         self.obs_space = 2
         self.regime_space = 2
@@ -306,33 +306,33 @@ if __name__ == "__main__":
     parser.add_argument('-obs_init', '--prob_obs_init', action="store",
                         default=0.5, type=float,
                         help="Initial regime probability")
-    parser.add_argument('-obs_change','--prob_obs_change', nargs='+',
-                        help="Probability of sampling observations", action="store", type=float)
+    parser.add_argument('-obs_change', '--prob_obs_change', nargs='+',
+                        help="Probability of sampling observations",
+                        action="store", type=float)
     parser.add_argument('-catch', '--prob_catch', action="store",
                         default=0.05, type=float,
                         help="Probability of changing regime")
     parser.add_argument('-t', '--title', action="store",
                         default="temporary_sample_title", type=str,
-						help='Title of file which stores sequence')
+                        help='Title of file which stores sequence')
     parser.add_argument('-seq', '--sequence_length', action="store",
                         default=200, type=int,
-						help='Length of binary sequence being processed')
+                        help='Length of binary sequence being processed')
     parser.add_argument('-matlab', '--mat_file_out',
                         action="store_true",
                         default=True,
-						help='Save output as a .mat file')
+                        help='Save output as a .mat file')
     parser.add_argument('-order', '--markov_order', action="store",
                         default=1, type=int,
-						help='Markov dependency on observation level')
+                        help='Markov dependency on observation level')
     parser.add_argument('-p', '--plot_seq',
                         action="store_true",
                         default=False,
-						help='View/Plot the sampled sequence')
+                        help='View/Plot the sampled sequence')
     parser.add_argument('-v', '--verbose',
                         action="store_true",
                         default=False,
-						help='Get status printed out')
-
+                        help='Get status printed out')
 
     args = parser.parse_args()
 

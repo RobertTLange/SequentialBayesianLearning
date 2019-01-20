@@ -1,3 +1,6 @@
 .git
 *.pyc
+.ipynb_checkpoints
 .DS_Store
+data
+OLD

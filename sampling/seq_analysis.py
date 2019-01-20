@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 import os
 import argparse
-import seq_gen as seq_g
+from sampling import seq_gen as seq_g
 
 import dit
 from dit.divergences import jensen_shannon_divergence
@@ -14,7 +14,6 @@ from dit.divergences import jensen_shannon_divergence
 results_dir = os.getcwd() + "/results/"
 fig_dir = os.getcwd() + "/pics/"
 
-# np.random.seed(221)
 
 def find_deviants(sequence):
     """

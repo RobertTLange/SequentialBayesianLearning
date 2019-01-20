@@ -8,11 +8,13 @@ from scipy.stats import dirichlet
 import numpy as np
 
 results_dir = os.getcwd() + "/results/"
-fig_dir = os.getcwd() + "/pics/"
+fig_dir = os.getcwd() + "/figures/"
+
 
 def save_obj(obj, title):
     with open(title + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
 
 def load_obj(title):
     filename, file_extension = os.path.splitext(title)
@@ -22,15 +24,17 @@ def load_obj(title):
         with open(title, 'rb') as f:
             return pickle.load(f)
 
-def kl_general(p, q):
-    """Compute the KL divergence between two discrete probability distributions
-    The calculation is done directly using the Kullback-Leibler divergence,
-    KL( p || q ) = sum_{x} p(x) ln( p(x) / q(x) )
-    Natural logarithm is used!
-    """
-    if (p==0.).sum()+(q==0.).sum() > 0:
-        raise Exception, "Zero bins found"
-    return (p*(np.log(p) - np.log(q))).sum()
+
+# def kl_general(p, q):
+#     """Compute the KL divergence between two discrete probability distributions
+#     The calculation is done directly using the Kullback-Leibler divergence,
+#     KL( p || q ) = sum_{x} p(x) ln( p(x) / q(x) )
+#     Natural logarithm is used!
+#     """
+#     if (p==0.).sum()+(q==0.).sum() > 0:
+#         raise Exception, "Zero bins found"
+#     return (p*(np.log(p) - np.log(q))).sum()
+
 
 def kl_dir(alphas, betas):
     """Compute the KL divergence between two Dirichlet probability distributions
