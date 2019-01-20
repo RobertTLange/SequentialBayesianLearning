@@ -1,6 +1,8 @@
-.git
-*.pyc
 .ipynb_checkpoints
 .DS_Store
-data
-OLD
+*.pyc
+__pycache__
+.texpadtmp
+/data
+/logs
+*.pem
