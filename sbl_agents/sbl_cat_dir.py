@@ -66,7 +66,7 @@ class SBL_Cat_Dir():
 
         elif self.type == "AP":
             if self.t == 0:
-                print("Can't update posterior with only one observation - need two!")
+                # print("Can't update posterior with only one observation - need two!")
                 self.alphas[0] = 1
                 self.alphas[1] = 1
             else:
@@ -76,7 +76,7 @@ class SBL_Cat_Dir():
         elif self.type == "TP":
             # print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])
             if self.t == 0:
-                print("Can't update posterior with only one observation - need two!")
+                # print("Can't update posterior with only one observation - need two!")
                 self.alphas = np.ones((self.no_obs, self.no_obs))
             else:
                 for i in range(self.no_obs):
@@ -100,7 +100,8 @@ class SBL_Cat_Dir():
         return kl_dir(self.naive_posterior(alphas), alphas)
 
     def compute_surprisal(self, max_T, verbose_surprisal=False):
-        print("{}: Computing different surprisal measures for {} timesteps.".format(self.type, max_T))
+        if verbose_surprisal:
+            print("{}: Computing different surprisal measures for {} timesteps.".format(self.type, max_T))
         results = []
 
         for t in range(max_T):
@@ -132,7 +133,9 @@ class SBL_Cat_Dir():
             temp = [t, self.sequence[t], self.hidden[t], PS_temp, BS_temp, CS_temp]
             distr_params = list(self.alphas.reshape(1, -1)[0])
             results.append(temp + distr_params)
-        print("{}: Done computing surprisal measures for all {} timesteps.".format(self.type, self.T))
+
+        if verbose_surprisal:
+            print("{}: Done computing surprisal measures for all {} timesteps.".format(self.type, self.T))
         return np.asarray(results)
 
 
@@ -142,7 +145,7 @@ def main(seq, hidden, tau, model_type,
          save_results=False, title="temp", verbose=False):
     # II: Compute Surprisal for all time steps for Stimulus Prob CatDir Model
     CD_SBL_temp = SBL_Cat_Dir(seq, hidden, tau, model_type, verbose)
-    results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T)
+    results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T, verbose_surprisal=verbose)
 
     time = results[:, 0]
     sequence = results[:, 1]
