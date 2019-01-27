@@ -6,10 +6,8 @@ from scipy.special import gamma, digamma, gammaln
 from scipy.stats import dirichlet
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 results_dir = os.getcwd() + "/results/"
-fig_dir = os.getcwd() + "/figures/"
 
 
 def save_obj(obj, title):
@@ -63,52 +61,12 @@ def draw_dirichlet_params(alphas):
     return np.random.dirichlet((alphas), 1).transpose()
 
 
-def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
-                  save_pic=False):
-
-    time, hidden, sequence, PS, BS, CS = preproc_surprisal(SP, AP, TP)
-
-    fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(8, 8))
-    fig.suptitle('SBL {} Agent'.format(title), fontsize=12)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-    ax[0].set_xlim([0, max(time)])
-    ax[0].set_ylim([-0.2, 1.2])
-    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=10)
-    ax[0].scatter(time, hidden, s=0.5)
-    ax[0].set_xticks([], [])
-
-    ax[1].set_xlim([0, max(time)])
-    ax[1].set_ylim([-0.2, 1.2])
-    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=10)
-    ax[1].scatter(time, sequence, s=0.5)
-    ax[1].set_xticks([], [])
-
-    # Plot initial layout that persists (isn't redrawn)
-    ## First row - Sequence of Trials
-    sub_t = ["Stimulus Probability", "Alternation Probability", "Transition Probability"]
-    for i in range(2, 5):
-        ax[i].set_xlim([0, max(time)])
-        ax[i].set_ylim([-0.2, 1.2])
-        if i == 2:
-            ax[i].set_ylim([-0.2, 1.5])
-        ax[i].plot(time, PS[i-2], c="r", label=r"Predictive Surprise: $PS(o_t)$")
-        ax[i].plot(time, BS[i-2], c="b", label=r"Bayesian Surprise: $BS(o_t)$")
-        ax[i].plot(time, CS[i-2], c="g", label=r"Confidence-Corrected Surprise: $CS(o_t)$")
-        ax[i].set_title("{} Model".format(sub_t[i-2]), fontsize=10)
-        if i==2:
-            ax[i].legend(loc="upper center", prop={'size': 6}, ncol=3)
-        if i!=4:
-            ax[i].set_xticks([], [])
-    if save_pic:
-        plt.savefig(figure_dir + 'sbl_cd_comparison.png', dpi=300)
-    else:
-        plt.show()
-
 def stand(surprise):
+    # Standardize surprise arrays
     arr = np.array(surprise)
-    temp = arr/np.nanmax(arr,axis=0)
+    temp = arr/np.nanmax(arr, axis=0)
     return temp
+
 
 def preproc_surprisal(SP, AP, TP):
     time = SP["time"]
@@ -128,8 +86,55 @@ def preproc_surprisal(SP, AP, TP):
     return time, hidden, sequence, PS, BS, CS
 
 
-if __name__ == "__main__":
-    alphas_old = np.array([2, 1,  1])
-    alphas = np.array([3, 1,  1])
-    # Why is Kl negative in bits different? - divergence non-neg by Gibbs!!!
-    print(kl_dir(alphas_old, alphas))
+def get_electrode_data(eeg_data, block_id, elec_id):
+    num_blocks = 5
+    num_trials = 4000
+    # Subselect eeg and recording time stamps from raw data object in .mat file
+    """
+    Structure of eeg_raw/eeg_times object: Sampling rate of 512 points per second
+        - raw: Num rows = number of blocks, Num cols = Number of electrodes (see EOI)
+        - times: Num rows = number of trials and start of blocks (last rows)
+    """
+    eeg_raw = eeg_data["data"][0]
+    eeg_time = eeg_data["data"][1]
+    # Select data according to block and electrode id
+    elec_bl_raw = eeg_raw[block_id][elec_id]
+    eeg_bl_time = eeg_time[block_id].flatten()
+
+    # Select block-specific event times from from raw data in .mat file
+    """
+    Structure of event_times object: Rows 1-4000: Events/Trials
+        First Col: Boolean for Bad Quality Trial
+        Second Col: Form of stimulus/trial see trial_coding_lookup object
+        Third Col: Time of trial - use to match with elec_bl_raw to get data
+
+    block_start_times: Final rows of event_times yield the starting times of blocks
+        - use to subselect specific data with the help of the trial times
+    """
+    event_times = eeg_data["event_times"][0]
+    event_times = np.array(event_times.tolist()).reshape((num_trials+num_blocks, 3))
+    block_start_times = []
+
+    for i in range(len(event_times[num_trials:])):
+        block_start_times.append(event_times[num_trials:][i][2])
+    # Append final point in time and sanity check
+    block_start_times.append(event_times[num_trials-1][2])
+    if len(block_start_times) != (num_blocks + 1):
+        raise "Something is wrong with data shape: Wrong number of blocks!"
+
+    time_int = block_start_times[block_id:block_id+2]
+    start_idx = np.where(event_times[:, 2] > time_int[0])
+    stop_idx = np.where(event_times[:, 2] < time_int[1])
+    block_event_idx = np.intersect1d(start_idx, stop_idx)
+    # Select event times based on start/stop of block
+    events_in_block = event_times[block_event_idx, 2]
+    if len(events_in_block) != (num_trials/num_blocks):
+        raise "Something is wrong with data shape: Wrong number of events!"
+
+    # Select raw eeg data based on block-specific event times - Get closest point!
+    # This is ultimately the data we want to explain in our analysis
+    tree = KDTree(events_in_block)
+    neighbor_dists, neighbor_indices = tree.query(eeg_bl_time)
+    _, data_idx = np.unique(neighbor_indices, return_index=True)
+    eeg_data_out = elec_bl_raw[data_idx]
+    return eeg_data_out
