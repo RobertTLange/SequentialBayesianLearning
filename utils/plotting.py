@@ -6,6 +6,31 @@ import matplotlib.pyplot as plt
 fig_dir = os.getcwd() + "/figures/"
 
 
+def stand(surprise):
+    # Standardize surprise arrays
+    arr = np.array(surprise)
+    temp = arr/np.nanmax(arr, axis=0)
+    return temp
+
+
+def preproc_surprisal(SP, AP, TP):
+    time = SP["time"]
+    hidden = SP["hidden"]
+    sequence = SP["sequence"]
+
+    PS = [stand(SP["predictive_surprise"]),
+          stand(AP["predictive_surprise"]),
+          stand(TP["predictive_surprise"])]
+    BS = [stand(SP["bayesian_surprise"]),
+          stand(AP["bayesian_surprise"]),
+          stand(TP["bayesian_surprise"])]
+    CS = [stand(SP["confidence_corrected_surprise"]),
+          stand(AP["confidence_corrected_surprise"]),
+          stand(TP["confidence_corrected_surprise"])]
+
+    return time, hidden, sequence, PS, BS, CS
+
+
 def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
                   save_pic=False):
 

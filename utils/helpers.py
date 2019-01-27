@@ -5,6 +5,8 @@ import scipy.io as sio
 from scipy.special import gamma, digamma, gammaln
 from scipy.stats import dirichlet
 
+from pykdtree.kdtree import KDTree
+
 import numpy as np
 
 results_dir = os.getcwd() + "/results/"
@@ -59,31 +61,6 @@ def draw_dirichlet_params(alphas):
     if len(alphas) != 8:
         raise ValueError("Provide correct size of concentration params")
     return np.random.dirichlet((alphas), 1).transpose()
-
-
-def stand(surprise):
-    # Standardize surprise arrays
-    arr = np.array(surprise)
-    temp = arr/np.nanmax(arr, axis=0)
-    return temp
-
-
-def preproc_surprisal(SP, AP, TP):
-    time = SP["time"]
-    hidden = SP["hidden"]
-    sequence = SP["sequence"]
-
-    PS = [stand(SP["predictive_surprise"]),
-          stand(AP["predictive_surprise"]),
-          stand(TP["predictive_surprise"])]
-    BS = [stand(SP["bayesian_surprise"]),
-          stand(AP["bayesian_surprise"]),
-          stand(TP["bayesian_surprise"])]
-    CS = [stand(SP["confidence_corrected_surprise"]),
-          stand(AP["confidence_corrected_surprise"]),
-          stand(TP["confidence_corrected_surprise"])]
-
-    return time, hidden, sequence, PS, BS, CS
 
 
 def get_electrode_data(eeg_data, block_id, elec_id):
