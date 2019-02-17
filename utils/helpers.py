@@ -63,13 +63,12 @@ def draw_dirichlet_params(alphas):
     return np.random.dirichlet((alphas), 1).transpose()
 
 
-def get_electrode_data(eeg_data, block_id, elec_id):
+def get_electrode_data(eeg_data, block_id, elec_id, percent_resolution=1):
     num_blocks = 5
     num_trials = 4000
     sampling_rate = 512
-    inter_stim_interval = np.array([0.05, 0.6])
-    num_inter_stim_rec = int(512*inter_stim_interval.sum())  # round down!
-    out_resolution = 1*num_inter_stim_rec
+    inter_stim_interval = np.array([0.05, 0.65])
+    num_inter_stim_rec = int(sampling_rate*inter_stim_interval.sum())  # round down!
     # Subselect eeg and recording time stamps from raw data object in .mat file
     """
     Structure of eeg_raw/eeg_times object: Sampling rate of 512 points per second
@@ -116,18 +115,29 @@ def get_electrode_data(eeg_data, block_id, elec_id):
     events_int_start = events_in_block - inter_stim_interval[0]
     events_int_stop = events_in_block + inter_stim_interval[1]
 
+    # Loop over all events and append an array which corresponds to all sampled
+    # points within the interstimulus interval
     eeg_data_out = np.empty((0, num_inter_stim_rec), float)
+
     for t in range(events_in_block.shape[0]):
         start_idx_stim = np.where(eeg_bl_time >= events_int_start[t])
         stop_idx_stim = np.where(eeg_bl_time <= events_int_stop[t])
-        stim_event_idx = np.intersect1d(start_idx_stim, stop_idx_stim)[:num_inter_stim_rec]
+        stim_event_idx = np.intersect1d(start_idx_stim,
+                                        stop_idx_stim)[:num_inter_stim_rec]
         eeg_temp_array = elec_bl_raw[stim_event_idx]
         eeg_data_out = np.vstack((eeg_data_out, eeg_temp_array))
 
+    # Peform downsampling for desired resolution - pick from lin space
+    desired_samples = int(percent_resolution*num_inter_stim_rec)
+    sample_idx = np.linspace(0, num_inter_stim_rec-1, desired_samples, dtype=int)
+
+    if percent_resolution != 1:
+        print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/inter_stim_interval.sum())))
+    # OLD CODE: Only picks sampled point which is closest to the trial time
     # Select raw eeg data based on block-specific event times - Get closest point!
     # This is ultimately the data we want to explain in our analysis
     # tree = KDTree(events_in_block)
     # neighbor_dists, neighbor_indices = tree.query(eeg_bl_time)
     # _, data_idx = np.unique(neighbor_indices, return_index=True)
     # eeg_data_out = elec_bl_raw[data_idx]
-    return eeg_data_out
+    return eeg_data_out[:, sample_idx]

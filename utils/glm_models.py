@@ -2,11 +2,10 @@ import pymc3 as pm
 from pymc3.variational.callbacks import CheckParametersConvergence
 
 
-def run_model_estimation(y_elec, surprise, model_type):
-    data = dict(y_elec=y_elec, surprise=surprise)
+def run_model_estimation(y_elec, surprise_reg, model_type, int_point):
 
     if model_type == "OLS":
-        model = OLS_model(y_elec, surprise)
+        model = OLS_model(y_elec[:, int_point], surprise_reg)
     else:
         raise "Provide a valid model type"
 
