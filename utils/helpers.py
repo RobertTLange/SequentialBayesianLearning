@@ -66,6 +66,10 @@ def draw_dirichlet_params(alphas):
 def get_electrode_data(eeg_data, block_id, elec_id):
     num_blocks = 5
     num_trials = 4000
+    sampling_rate = 512
+    inter_stim_interval = np.array([0.05, 0.6])
+    num_inter_stim_rec = int(512*inter_stim_interval.sum())  # round down!
+    out_resolution = 1*num_inter_stim_rec
     # Subselect eeg and recording time stamps from raw data object in .mat file
     """
     Structure of eeg_raw/eeg_times object: Sampling rate of 512 points per second
@@ -77,7 +81,6 @@ def get_electrode_data(eeg_data, block_id, elec_id):
     # Select data according to block and electrode id
     elec_bl_raw = eeg_raw[block_id][elec_id]
     eeg_bl_time = eeg_time[block_id].flatten()
-
     # Select block-specific event times from from raw data in .mat file
     """
     Structure of event_times object: Rows 1-4000: Events/Trials
@@ -99,19 +102,32 @@ def get_electrode_data(eeg_data, block_id, elec_id):
     if len(block_start_times) != (num_blocks + 1):
         raise "Something is wrong with data shape: Wrong number of blocks!"
 
+    # Time interval of specific blocks - and id of events in block
     time_int = block_start_times[block_id:block_id+2]
-    start_idx = np.where(event_times[:, 2] > time_int[0])
-    stop_idx = np.where(event_times[:, 2] < time_int[1])
-    block_event_idx = np.intersect1d(start_idx, stop_idx)
+    start_idx_block = np.where(event_times[:, 2] > time_int[0])
+    stop_idx_block = np.where(event_times[:, 2] < time_int[1])
+    block_event_idx = np.intersect1d(start_idx_block, stop_idx_block)
+
     # Select event times based on start/stop of block
     events_in_block = event_times[block_event_idx, 2]
     if len(events_in_block) != (num_trials/num_blocks):
         raise "Something is wrong with data shape: Wrong number of events!"
 
+    events_int_start = events_in_block - inter_stim_interval[0]
+    events_int_stop = events_in_block + inter_stim_interval[1]
+
+    eeg_data_out = np.empty((0, num_inter_stim_rec), float)
+    for t in range(events_in_block.shape[0]):
+        start_idx_stim = np.where(eeg_bl_time >= events_int_start[t])
+        stop_idx_stim = np.where(eeg_bl_time <= events_int_stop[t])
+        stim_event_idx = np.intersect1d(start_idx_stim, stop_idx_stim)[:num_inter_stim_rec]
+        eeg_temp_array = elec_bl_raw[stim_event_idx]
+        eeg_data_out = np.vstack((eeg_data_out, eeg_temp_array))
+
     # Select raw eeg data based on block-specific event times - Get closest point!
     # This is ultimately the data we want to explain in our analysis
-    tree = KDTree(events_in_block)
-    neighbor_dists, neighbor_indices = tree.query(eeg_bl_time)
-    _, data_idx = np.unique(neighbor_indices, return_index=True)
-    eeg_data_out = elec_bl_raw[data_idx]
+    # tree = KDTree(events_in_block)
+    # neighbor_dists, neighbor_indices = tree.query(eeg_bl_time)
+    # _, data_idx = np.unique(neighbor_indices, return_index=True)
+    # eeg_data_out = elec_bl_raw[data_idx]
     return eeg_data_out
