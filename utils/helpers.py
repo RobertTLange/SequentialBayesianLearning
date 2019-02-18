@@ -63,12 +63,14 @@ def draw_dirichlet_params(alphas):
     return np.random.dirichlet((alphas), 1).transpose()
 
 
-def get_electrode_data(eeg_data, block_id, elec_id, percent_resolution=1):
+def get_electrode_data(eeg_data, block_id, elec_id,
+                       inter_stim_interval=np.array([-0.05, 0.65]),
+                       percent_resolution=1):
     num_blocks = 5
     num_trials = 4000
     sampling_rate = 512
-    inter_stim_interval = np.array([0.05, 0.65])
-    num_inter_stim_rec = int(sampling_rate*inter_stim_interval.sum())  # round down!
+    num_inter_stim_rec = int(sampling_rate*
+                             (inter_stim_interval[1] - inter_stim_interval[0]))  # round down!
     # Subselect eeg and recording time stamps from raw data object in .mat file
     """
     Structure of eeg_raw/eeg_times object: Sampling rate of 512 points per second
@@ -112,7 +114,7 @@ def get_electrode_data(eeg_data, block_id, elec_id, percent_resolution=1):
     if len(events_in_block) != (num_trials/num_blocks):
         raise "Something is wrong with data shape: Wrong number of events!"
 
-    events_int_start = events_in_block - inter_stim_interval[0]
+    events_int_start = events_in_block + inter_stim_interval[0]
     events_int_stop = events_in_block + inter_stim_interval[1]
 
     # Loop over all events and append an array which corresponds to all sampled
@@ -131,8 +133,9 @@ def get_electrode_data(eeg_data, block_id, elec_id, percent_resolution=1):
     desired_samples = int(percent_resolution*num_inter_stim_rec)
     sample_idx = np.linspace(0, num_inter_stim_rec-1, desired_samples, dtype=int)
 
+    print("Done selecting block and electrode specific data for [{}, {}]ms interval".format(inter_stim_interval[0], inter_stim_interval[1]))
     if percent_resolution != 1:
-        print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/inter_stim_interval.sum())))
+        print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/(inter_stim_interval[1] - inter_stim_interval[0]))))
     # OLD CODE: Only picks sampled point which is closest to the trial time
     # Select raw eeg data based on block-specific event times - Get closest point!
     # This is ultimately the data we want to explain in our analysis

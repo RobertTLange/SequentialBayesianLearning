@@ -42,7 +42,7 @@ def OLS_model(y_elec, surprise):
     return mdl_ols
 
 
-def Hierarchical_model(y_elec, surprise):
+def hierarchical_model(y_elec, surprise):
     data = dict(y_elec=y_elec, surprise=surprise)
 
     with pm.Model() as mdl_hierarchical:
