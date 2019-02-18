@@ -2,10 +2,17 @@ import pymc3 as pm
 from pymc3.variational.callbacks import CheckParametersConvergence
 
 
-def run_model_estimation(y_elec, surprise_reg, model_type, int_point):
+def normalize(a):
+    return (a - np.min(a))/np.ptp(a)
+
+
+def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
+    # Normalize the data and regressor to lie within 0, 1
+    y_std = normalize(y_elec[:, int_point])
+    surprise_reg_std = normalize(surprise_reg)
 
     if model_type == "OLS":
-        model = OLS_model(y_elec[:, int_point], surprise_reg)
+        model = OLS_model(y_std, surprise_reg_std)
     else:
         raise "Provide a valid model type"
 
