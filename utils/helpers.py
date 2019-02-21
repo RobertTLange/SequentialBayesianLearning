@@ -12,6 +12,10 @@ import numpy as np
 results_dir = os.getcwd() + "/results/"
 
 
+def normalize(a):
+    return (a - np.min(a))/np.ptp(a)
+
+
 def save_obj(obj, title):
     with open(title + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)

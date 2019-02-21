@@ -56,7 +56,6 @@ class SBL_Cat_Dir():
         else:
             raise "Provide right model type (SP, AP, TP)"
 
-
     def update_posterior(self):
         exp_weighting = self.exp_forgetting[-(self.t+1):]
 
@@ -150,9 +149,9 @@ def main(seq, hidden, tau, model_type,
     time = results[:, 0]
     sequence = results[:, 1]
     hidden = results[:, 2]
-    PS = results[:, 2]
-    BS = results[:, 3]
-    CS = results[:, 4]
+    PS = results[:, 3]
+    BS = results[:, 4]
+    CS = results[:, 5]
 
     if save_results:
         results_formatted = {"time": time,

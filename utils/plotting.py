@@ -1,16 +1,9 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-
+from utils.helpers import normalize
 
 fig_dir = os.getcwd() + "/figures/"
-
-
-def stand(surprise):
-    # Standardize surprise arrays
-    arr = np.array(surprise)
-    temp = arr/np.nanmax(arr, axis=0)
-    return temp
 
 
 def preproc_surprisal(SP, AP, TP):
@@ -18,15 +11,15 @@ def preproc_surprisal(SP, AP, TP):
     hidden = SP["hidden"]
     sequence = SP["sequence"]
 
-    PS = [stand(SP["predictive_surprise"]),
-          stand(AP["predictive_surprise"]),
-          stand(TP["predictive_surprise"])]
-    BS = [stand(SP["bayesian_surprise"]),
-          stand(AP["bayesian_surprise"]),
-          stand(TP["bayesian_surprise"])]
-    CS = [stand(SP["confidence_corrected_surprise"]),
-          stand(AP["confidence_corrected_surprise"]),
-          stand(TP["confidence_corrected_surprise"])]
+    PS = [normalize(SP["predictive_surprise"]),
+          normalize(AP["predictive_surprise"]),
+          normalize(TP["predictive_surprise"])]
+    BS = [normalize(SP["bayesian_surprise"]),
+          normalize(AP["bayesian_surprise"]),
+          normalize(TP["bayesian_surprise"])]
+    CS = [normalize(SP["confidence_corrected_surprise"]),
+          normalize(AP["confidence_corrected_surprise"]),
+          normalize(TP["confidence_corrected_surprise"])]
 
     return time, hidden, sequence, PS, BS, CS
 

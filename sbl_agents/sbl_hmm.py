@@ -60,7 +60,6 @@ class SBL_HMM():
         self.type = model_type
         self.n_states = n_states
         self.verbose = verbose
-        print(self.n_states)
 
         self.no_obs = np.unique(seq).shape[0]
         self.stim_ind = np.zeros((self.T, self.no_obs))
@@ -90,7 +89,6 @@ class SBL_HMM():
             self.posterior = np.ones((self.no_obs, self.no_obs))/self.no_obs
         else:
             raise "Provide right model type (SP, AP, TP)"
-
 
     def update_posterior_old(self):
         if self.type == "SP":
