@@ -66,7 +66,7 @@ def draw_dirichlet_params(alphas):
 
 def get_electrode_data(eeg_data, block_id, elec_id,
                        inter_stim_interval=np.array([-0.05, 0.65]),
-                       percent_resolution=1):
+                       percent_resolution=1, verbose=True):
     num_blocks = 5
     num_trials = 4000
     sampling_rate = 512
@@ -137,9 +137,10 @@ def get_electrode_data(eeg_data, block_id, elec_id,
                                      inter_stim_interval[1],
                                      desired_samples)
 
-    print("Done selecting block/electrode specific data for [{}, {}]ms int".format(inter_stim_interval[0], inter_stim_interval[1]))
-    if percent_resolution != 1:
-        print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/(inter_stim_interval[1] - inter_stim_interval[0]))))
+    if verbose:
+        print("Done selecting block/electrode specific data for [{}, {}]ms int".format(inter_stim_interval[0], inter_stim_interval[1]))
+        if percent_resolution != 1:
+            print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/(inter_stim_interval[1] - inter_stim_interval[0]))))
 
     # return the eeg array subselected for block, time window, and sampling
     # return the exact time points in sample_time_window array

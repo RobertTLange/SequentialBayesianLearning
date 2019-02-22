@@ -91,6 +91,7 @@ def plot_free_energy(fe_ts_list, windowSize=5,
     """
     Plot the time-series of the optimization of the free energy/ELBO
     """
+    plt.figure(figsize=(8, 8))
     for i in range(len(fe_ts_list)):
         plt.plot(smooth(fe_ts_list[i], windowSize), label=labels[i])
 
@@ -107,6 +108,7 @@ def plot_free_energy(fe_ts_list, windowSize=5,
 
 def plot_lme_across_int(y_tw, null_model_lme, reg_model_lme,
                         reg_label, save_fname=None):
+    plt.figure(figsize=(8, 8))
     plt.subplot(2, 1, 1)
     plt.title("LME across Interstimulus Interval (Normalized by Null)")
     plt.plot(y_tw, reg_model_lme-null_model_lme)
