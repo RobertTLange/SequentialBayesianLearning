@@ -12,9 +12,10 @@ def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
     """
     Inputs: int_point - sampling point in interstimulus interval
             y_elec - array with eeg recordings (num_trials x num_interstim_rec)
-            surprise_reg - num_trials x 1 surprise from Bayesian learning model
+            surprise_reg - num_trials x 1 surprise from Baye learning model
             model_type - regression model
-    Output: Log model evidence/Negative free energy from VI on Bayesian model
+    Output: Time-series of log model evidence/Negative free energy
+            from VI on Bayesian model
     """
     # Normalize the data and regressor to lie within 0, 1
     y_std = normalize(y_elec[:, int_point])
@@ -24,7 +25,7 @@ def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
     if model_type == "OLS":
         model = OLS_model(y_std, surprise_reg_std)
     elif model_type == "Hierarchical":
-        model = hierarchical_model(y_std, surprise_reg_std)
+        model = Hierarchical_model(y_std, surprise_reg_std)
     elif model_type == "Bayesian-MLP":
         model = Bayesian_NN(y_std, surprise_reg_std)
     else:
@@ -39,7 +40,7 @@ def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
                         n=30000,
                         progressbar=0)
     # return full optimization trace of free energy
-    return -approx.hist[-1]
+    return -approx.hist
 
 
 def OLS_model(y_elec, surprise):
@@ -59,7 +60,7 @@ def OLS_model(y_elec, surprise):
     return mdl_ols
 
 
-def hierarchical_model(y_elec, surprise):
+def Hierarchical_model(y_elec, surprise):
     data = dict(y_elec=y_elec, surprise=surprise)
     with pm.Model() as mdl_hierarchical:
         eta = pm.Normal('eta', 0, 1, shape=y_elec.shape[0])
@@ -73,7 +74,7 @@ def hierarchical_model(y_elec, surprise):
     return mdl_hierarchical
 
 
-def Bayesian_NN(y_elec, surprise, n_hidden=32):
+def Bayesian_NN(y_elec, surprise, n_hidden=10):
     # Initialize random weights between each layer
     init_hidden = np.random.randn(surprise.shape[0], n_hidden).astype(float)
     init_out = np.random.randn(n_hidden).astype(float)

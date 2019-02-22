@@ -5,6 +5,18 @@ from utils.helpers import normalize
 
 fig_dir = os.getcwd() + "/figures/"
 
+# Define color blind-friendly color cycle
+CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
+                  '#f781bf', '#a65628', '#984ea3',
+                  '#999999', '#e41a1c', '#dede00']
+
+
+def smooth(ts, windowSize):
+    # Perform smoothed moving average with specified window to time series
+    weights = np.repeat(1.0, windowSize) / windowSize
+    ts_MA = np.convolve(ts, weights, 'valid')
+    return ts_MA
+
 
 def preproc_surprisal(SP, AP, TP):
     time = SP["time"]
@@ -46,22 +58,44 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
     ax[1].set_xticks([], [])
 
     # Plot initial layout that persists (isn't redrawn)
-    ## First row - Sequence of Trials
-    sub_t = ["Stimulus Probability", "Alternation Probability", "Transition Probability"]
+    # First row - Sequence of Trials
+    sub_t = ["Stimulus Probability", "Alternation Probability",
+             "Transition Probability"]
     for i in range(2, 5):
         ax[i].set_xlim([0, max(time)])
         ax[i].set_ylim([-0.2, 1.2])
         if i == 2:
             ax[i].set_ylim([-0.2, 1.5])
-        ax[i].plot(time, PS[i-2], c="r", label=r"Predictive Surprise: $PS(o_t)$")
-        ax[i].plot(time, BS[i-2], c="b", label=r"Bayesian Surprise: $BS(o_t)$")
-        ax[i].plot(time, CS[i-2], c="g", label=r"Confidence-Corrected Surprise: $CS(o_t)$")
+        ax[i].plot(time, PS[i-2], c="r",
+                   label=r"Predictive Surprise: $PS(o_t)$")
+        ax[i].plot(time, BS[i-2], c="b",
+                   label=r"Bayesian Surprise: $BS(o_t)$")
+        ax[i].plot(time, CS[i-2], c="g",
+                   label=r"Confidence-Corrected Surprise: $CS(o_t)$")
         ax[i].set_title("{} Model".format(sub_t[i-2]), fontsize=10)
-        if i==2:
+        if i == 2:
             ax[i].legend(loc="upper center", prop={'size': 6}, ncol=3)
-        if i!=4:
+        if i != 4:
             ax[i].set_xticks([], [])
     if save_pic:
-        plt.savefig(figure_dir + 'sbl_cd_comparison.png', dpi=300)
+        plt.savefig(fig_dir + 'sbl_cd_comparison.png', dpi=300)
     else:
         plt.show()
+
+
+def plot_free_energy(fe_ts_list,
+                     windowSize=5,
+                     labels=["Robust Ridge Regr.",
+                             "Hierarchical GLM",
+                             "B-NN (10 Hiddens)"],
+                     save_fname=None):
+    """
+    Plot the time-series of the optimization of the free energy/ELBO
+    """
+    for i in range(len(fe_ts_list)):
+        plt.plot(smooth(fe_ts_list[i], windowSize), label=labels[i])
+
+    plt.xlabel("VI Optimization Updates")
+    plt.ylabel("LME/Negative Free Energy")
+    plt.legend()
+    plt.title("Free Energy/ELBO after ADVI Optimization")

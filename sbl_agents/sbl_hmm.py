@@ -130,7 +130,6 @@ class SBL_HMM():
 
         return startprob, transmat, emissionprob
 
-
     def calc_all_posteriors(self):
         """
         Input: Unique state id transformed data, length per ep trace and HMM inits
@@ -154,7 +153,8 @@ class SBL_HMM():
         return posteriors
 
     def posterior_predictive(self, posterior):
-        return np.matmul(self.model.emissionprob_.T, np.matmul(self.model.transmat_.T, posterior.T))
+        return np.matmul(self.model.emissionprob_.T,
+                         np.matmul(self.model.transmat_.T, posterior.T))
 
     def naive_posterior(self, posterior):
         return self.posterior_predictive(posterior)/self.posterior_predictive(posterior).sum(axis=0)
