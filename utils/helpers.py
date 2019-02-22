@@ -43,7 +43,7 @@ def kl_general(p, q):
     KL( p || q ) = sum_{x} p(x) ln( p(x) / q(x) )
     Natural logarithm is used!
     """
-    if (p==0.).sum()+(q==0.).sum() > 0:
+    if (p == 0.).sum() + (q == 0.).sum() > 0:
         raise "Zero bins found"
     return (p*(np.log(p) - np.log(q))).sum()
 
@@ -73,13 +73,13 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     num_blocks = 5
     num_trials = 4000
     sampling_rate = 512
-    num_inter_stim_rec = int(sampling_rate*
+    num_inter_stim_rec = int(sampling_rate *
                              (inter_stim_interval[1] - inter_stim_interval[0]))  # round down!
-    # Subselect eeg and recording time stamps from raw data object in .mat file
+    # Subselect eeg + recording timestamps from raw data object in .mat
     """
-    Structure of eeg_raw/eeg_times object: Sampling rate of 512 points per second
-        - raw: Num rows = number of blocks, Num cols = Number of electrodes (see EOI)
-        - times: Num rows = number of trials and start of blocks (last rows)
+    Structure of eeg_raw/eeg_times obj: Sampling rate of 512 points per sec
+        - raw: # rows = number of blocks, # cols = # of electrodes (see EOI)
+        - times: # rows = # of trials and start of blocks (last rows)
     """
     eeg_raw = eeg_data["data"][0]
     eeg_time = eeg_data["data"][1]
@@ -136,15 +136,14 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     # Peform downsampling for desired resolution - pick from lin space
     desired_samples = int(percent_resolution*num_inter_stim_rec)
     sample_idx = np.linspace(0, num_inter_stim_rec-1, desired_samples, dtype=int)
+    sample_time_window = np.linspace(inter_stim_interval[0],
+                                     inter_stim_interval[1],
+                                     desired_samples)
 
-    print("Done selecting block and electrode specific data for [{}, {}]ms interval".format(inter_stim_interval[0], inter_stim_interval[1]))
+    print("Done selecting block/electrode specific data for [{}, {}]ms int".format(inter_stim_interval[0], inter_stim_interval[1]))
     if percent_resolution != 1:
         print("Downsampled original {} Hz Sampling Rate to {} Hz.". format(sampling_rate, int(desired_samples/(inter_stim_interval[1] - inter_stim_interval[0]))))
-    # OLD CODE: Only picks sampled point which is closest to the trial time
-    # Select raw eeg data based on block-specific event times - Get closest point!
-    # This is ultimately the data we want to explain in our analysis
-    # tree = KDTree(events_in_block)
-    # neighbor_dists, neighbor_indices = tree.query(eeg_bl_time)
-    # _, data_idx = np.unique(neighbor_indices, return_index=True)
-    # eeg_data_out = elec_bl_raw[data_idx]
-    return eeg_data_out[:, sample_idx]
+
+    # return the eeg array subselected for block, time window, and sampling
+    # return the exact time points in sample_time_window array
+    return eeg_data_out[:, sample_idx], sample_time_window
