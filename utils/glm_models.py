@@ -4,11 +4,19 @@ import pymc3 as pm
 from pymc3.variational.callbacks import CheckParametersConvergence
 from utils.helpers import normalize
 
+import multiprocessing
+from functools import partial
+from contextlib import contextmanager
+
 logger_pymc3 = logging.getLogger('pymc3')
 logger_pymc3.setLevel(logging.ERROR)
 
+logger_theano = logging.getLogger('theano.gof.compilelock')
+logger_theano.setLevel(logging.ERROR)
 
-def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
+
+def run_model_estimation(int_point, y_elec, surprise_reg=None,
+                         model_type="OLS"):
     """
     Inputs: int_point - sampling point in interstimulus interval
             y_elec - array with eeg recordings (num_trials x num_interstim_rec)
@@ -28,6 +36,8 @@ def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
         model = Hierarchical_model(y_std, surprise_reg_std)
     elif model_type == "Bayesian-MLP":
         model = Bayesian_NN(y_std, surprise_reg_std)
+    elif model_type == "Null":
+        model = Null_model(y_std)
     else:
         raise "Provide a valid model type"
 
@@ -41,6 +51,17 @@ def run_model_estimation(int_point, y_elec, surprise_reg, model_type):
                         progressbar=0)
     # return full optimization trace of free energy
     return -approx.hist
+
+
+def Null_model(y_elec):
+    with pm.Model() as mdl_null:
+        b0 = pm.Normal('b0', mu=0, sd=100)
+        y_est = b0
+        # sigma_y = pm.InverseGamma('sigma_y', alpha=1, beta=1)
+        sigma_y = pm.HalfCauchy('sigma', beta=10)
+        likelihood = pm.Normal('likelihood', mu=y_est, sd=sigma_y,
+                               observed=y_elec)
+    return mdl_null
 
 
 def OLS_model(y_elec, surprise):
@@ -98,3 +119,31 @@ def Bayesian_NN(y_elec, surprise, n_hidden=10):
         likelihood = pm.Normal('likelihood', mu=act_out, sd=sigma_y,
                                observed=y_elec)
     return mdl_nn
+
+
+def process_parallel_results(results):
+    """
+    Select final ELBO/free energy value from the ts of optimization
+    """
+    lme_results = []
+    for i in range(len(results)):
+        lme_results.append(results[i][-1])
+    return np.array(lme_results)
+
+
+def parallelize_over_samples(y_elec, regressor, reg_model_type):
+    """
+    Run pymc3 model estimation in parallel across different sampling points
+    """
+    func = partial(run_model_estimation, y_elec=y_elec,
+                   surprise_reg=regressor, model_type=reg_model_type)
+
+    sample_id = np.arange(y_elec.shape[1]).tolist()
+    num_cpus = multiprocessing.cpu_count()
+
+    with multiprocessing.Pool(processes=num_cpus-1) as pool:
+        results = pool.map(func, sample_id)
+
+    pool.close()
+    pool.join()
+    return process_parallel_results(results)

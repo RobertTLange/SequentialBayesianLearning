@@ -4,9 +4,6 @@ from scipy import log, log2, array, zeros
 import scipy.io as sio
 from scipy.special import gamma, digamma, gammaln
 from scipy.stats import dirichlet
-
-from pykdtree.kdtree import KDTree
-
 import numpy as np
 
 results_dir = os.getcwd() + "/results/"

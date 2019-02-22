@@ -83,8 +83,7 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
         plt.show()
 
 
-def plot_free_energy(fe_ts_list,
-                     windowSize=5,
+def plot_free_energy(fe_ts_list, windowSize=5,
                      labels=["Robust Ridge Regr.",
                              "Hierarchical GLM",
                              "B-NN (10 Hiddens)"],
@@ -99,3 +98,29 @@ def plot_free_energy(fe_ts_list,
     plt.ylabel("LME/Negative Free Energy")
     plt.legend()
     plt.title("Free Energy/ELBO after ADVI Optimization")
+
+    if save_fname is not None:
+        plt.savefig(fig_dir + save_fname, dpi=300)
+    else:
+        plt.show()
+
+
+def plot_lme_across_int(y_tw, null_model_lme, reg_model_lme,
+                        reg_label, save_fname=None):
+    plt.subplot(2, 1, 1)
+    plt.title("LME across Interstimulus Interval (Normalized by Null)")
+    plt.plot(y_tw, reg_model_lme-null_model_lme)
+    plt.ylabel("LME/Neg. FE")
+    plt.xticks([])
+
+    plt.subplot(2, 1, 2)
+    plt.plot(y_tw, reg_model_lme, label=reg_label)
+    plt.plot(y_tw, null_model_lme, label="Null")
+    plt.xlabel("Inter-Stimulus Interval")
+    plt.ylabel("LME/Neg. FE")
+    plt.legend(loc=1)
+
+    if save_fname is not None:
+        plt.savefig(fig_dir + save_fname, dpi=300)
+    else:
+        plt.show()
