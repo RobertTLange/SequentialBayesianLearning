@@ -186,3 +186,38 @@ class ExperimentLog():
 
         h5f.flush()
         h5f.close()
+
+
+def process_tbt_logs(results_dir, num_blocks, regressor_names,
+                     elec_name, log_fnames):
+    """
+    Load in all hdf5 log files (one per subject)
+    """
+    # Get time frame of analysis
+    h5f = tables.open_file(results_dir + log_fnames[0], mode="a")
+    g_tw = "subject_0/block_0/elec_Cz/Sample_Points"
+    y_tw = np.array([t for t in h5f.root[g_tw]])
+    h5f.close()
+
+    # Create empty results place-holder (for all subjects summed)
+    results_all = {key: np.zeros(y_tw.shape) for key in regressor_names}
+
+    for i, log in enumerate(log_fnames):
+        h5f = tables.open_file(results_dir + log, mode="a")
+        g_sub = "subject_" + str(i)
+
+        # Create empty results place-holder for single subject
+        results_temp = {key: [] for key in regressor_names}
+
+        for j in range(num_blocks):
+            # Loop over blocks and and regressors - temporarily store lmes
+            g_block = g_sub + "/block_" + str(j) + "/elec_" + elec_name
+            for reg in regressor_names:
+                out = [t for t in h5f.root[g_block + "/" + reg]]
+                results_temp[reg].append(out)
+        h5f.close()
+        for reg in regressor_names:
+            # Average across blocks and add for each subject
+            results_temp[reg] = np.mean(np.array(results_temp[reg]), axis=0)
+            results_all[reg] += results_temp[reg]
+    return y_tw, results_all

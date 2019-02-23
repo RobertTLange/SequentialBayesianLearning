@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.helpers import normalize
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 fig_dir = os.getcwd() + "/figures/"
 
@@ -126,3 +127,26 @@ def plot_lme_across_int(y_tw, null_model_lme, reg_model_lme,
         plt.savefig(fig_dir + save_fname, dpi=300)
     else:
         plt.show()
+
+
+def heatmap_lme(lme_array, x_labels, y_labels,
+                title="Log Model Evidences: Cz"):
+    fig, ax = plt.subplots(figsize=(15, 15))
+    im = ax.imshow(-lme_array, cmap="magma")
+
+    # We want to show all ticks...
+    ax.set_xticks(np.arange(len(x_labels)))
+    ax.set_yticks(np.arange(len(y_labels)))
+    # ... and label them with the respective list entries
+    ax.set_xticklabels(np.around(x_labels, 2))
+    ax.set_yticklabels(y_labels)
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+             rotation_mode="anchor")
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    fig.colorbar(im, cax=cax)
+    ax.set_title(title)
