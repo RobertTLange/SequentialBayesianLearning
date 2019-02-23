@@ -5,6 +5,8 @@ import scipy.io as sio
 from scipy.special import gamma, digamma, gammaln
 from scipy.stats import dirichlet
 import numpy as np
+import h5py
+import tables
 
 results_dir = os.getcwd() + "/results/"
 
@@ -145,3 +147,42 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     # return the eeg array subselected for block, time window, and sampling
     # return the exact time points in sample_time_window array
     return eeg_data_out[:, sample_idx], sample_time_window
+
+
+class ExperimentLog():
+    def __init__(self, num_subjects, num_blocks, elec_of_interest,
+                 save_fname=None):
+        """
+        Log Tree Structure
+        -> sub_id -> block_id -> elec_name -> regressors -> array
+        """
+        self.save_fname = save_fname
+
+        if os.path.exists(self.save_fname):
+            os.remove(self.save_fname)
+
+        # Initialize all the groups in hdf5 object
+        h5f = tables.open_file(self.save_fname, mode="a")
+        for i in range(num_subjects):
+            sub_i = h5f.create_group("/", "subject_" + str(i))
+            for j in range(num_blocks):
+                block_j = h5f.create_group("/" + "subject_" + str(i),
+                                           "block_" + str(j))
+                for elec_name, elec_num in elec_of_interest.items():
+                    elec = h5f.create_group("/" + "subject_" + str(i) + "/block_" + str(j), "elec_" + elec_name)
+        h5f.flush()
+        h5f.close()
+
+    def dump_data(self, subject_id, block_id,
+                  elec_name, regressor_type, results):
+
+        h5f = tables.open_file(self.save_fname, mode="a")
+        atom = tables.Atom.from_dtype(results.dtype)
+        group_name = "subject_" + str(subject_id) + "/block_" + str(block_id) + "/elec_" + elec_name
+        group = h5f.root[group_name]
+        d = h5f.create_carray(group, regressor_type, atom,
+                              results.shape)
+        d[...] = results[...]
+
+        h5f.flush()
+        h5f.close()
