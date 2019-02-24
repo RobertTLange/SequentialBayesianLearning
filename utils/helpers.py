@@ -83,7 +83,7 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     eeg_raw = eeg_data["data"][0]
     eeg_time = eeg_data["data"][1]
     # Select data according to block and electrode id
-    elec_bl_raw = eeg_raw[block_id][elec_id]
+    elec_bl_raw = eeg_raw[block_id][elec_id].T
     eeg_bl_time = eeg_time[block_id].flatten()
     # Select block-specific event times from from raw data in .mat file
     """
@@ -122,7 +122,11 @@ def get_electrode_data(eeg_data, block_id, elec_id,
 
     # Loop over all events and append an array which corresponds to all sampled
     # points within the interstimulus interval
-    eeg_data_out = np.empty((0, num_inter_stim_rec), float)
+
+    if type(elec_id) == list:
+        eeg_data_out = np.empty((0, num_inter_stim_rec, len(elec_id)), float)
+    else:
+        eeg_data_out = np.empty((0, num_inter_stim_rec), float)
 
     for t in range(events_in_block.shape[0]):
         start_idx_stim = np.where(eeg_bl_time >= events_int_start[t])
@@ -130,7 +134,13 @@ def get_electrode_data(eeg_data, block_id, elec_id,
         stim_event_idx = np.intersect1d(start_idx_stim,
                                         stop_idx_stim)[:num_inter_stim_rec]
         eeg_temp_array = elec_bl_raw[stim_event_idx]
-        eeg_data_out = np.vstack((eeg_data_out, eeg_temp_array))
+
+        if type(elec_id) == list:
+            eeg_data_out = np.vstack((eeg_data_out,
+                                      np.expand_dims(eeg_temp_array, axis=0)))
+        else:
+            eeg_data_out = np.vstack((eeg_data_out,
+                                      eeg_temp_array))
 
     # Peform downsampling for desired resolution - pick from lin space
     desired_samples = int(percent_resolution*num_inter_stim_rec)

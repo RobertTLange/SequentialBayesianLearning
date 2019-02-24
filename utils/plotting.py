@@ -132,7 +132,7 @@ def plot_lme_across_int(y_tw, null_model_lme, reg_model_lme,
 def heatmap_lme(lme_array, x_labels, y_labels,
                 title="Log Model Evidences: Cz"):
     fig, ax = plt.subplots(figsize=(15, 15))
-    im = ax.imshow(-lme_array, cmap="magma")
+    im = ax.imshow(lme_array, cmap="jet")
 
     # We want to show all ticks...
     ax.set_xticks(np.arange(len(x_labels)))
