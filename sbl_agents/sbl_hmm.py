@@ -90,31 +90,6 @@ class SBL_HMM():
         else:
             raise "Provide right model type (SP, AP, TP)"
 
-    def update_posterior_old(self):
-        if self.type == "SP":
-            for i in range(self.no_obs):
-                self.alphas[i] = 1 + np.dot(exp_weighting, self.stim_ind[:self.t+1, i])
-
-        elif self.type == "AP":
-            if self.t == 0:
-                print("Can't update posterior with only one observation - need two!")
-                self.alphas[0] = 1
-                self.alphas[1] = 1
-            else:
-                self.alphas[0] = 1 + np.dot(exp_weighting, self.repetition[:self.t+1])
-                self.alphas[1] = 1 + np.dot(exp_weighting, 1-self.repetition[:self.t+1])
-
-        elif self.type == "TP":
-            # print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])
-            if self.t == 0:
-                print("Can't update posterior with only one observation - need two!")
-                self.alphas = np.ones((self.no_obs, self.no_obs))
-            else:
-                for i in range(self.no_obs):
-                    for j in range(self.no_obs):
-                        # from-to alphas
-                        self.alphas[i, j] = 1 + np.dot(exp_weighting, self.stim_ind[:self.t+1, j]*self.transitions[:self.t+1, i])
-
     def init_hmm(self):
         """
         Input: number of desired hidden states for HMM model
@@ -146,7 +121,7 @@ class SBL_HMM():
         if self.type == "SP":
             temp = self.sequence[:self.T+1].reshape(1, -1).T
         elif self.type == "AP":
-            temp = self.repetition[:self.T+1].reshape(1, -1).T
+            temp = self.repetition[:self.T+1].reshape(1, -1).T.astype(int)
 
         self.model = model.fit(temp)
         logprob, posteriors = model.score_samples(temp)
@@ -166,7 +141,8 @@ class SBL_HMM():
         return kl_general(posterior_old, posterior)
 
     def corrected_surprisal(self, posterior):
-        return kl_general(self.naive_posterior(posterior), posterior)
+        # kl_general(self.naive_posterior(posterior), posterior)
+        return 0
 
     def compute_surprisal(self, max_T, verbose_surprisal=False):
         print("{}: Computing different surprisal measures for {} timesteps.".format(self.type, max_T))
@@ -175,7 +151,7 @@ class SBL_HMM():
         hmm_init_posterior = np.repeat(1./self.n_states, self.n_states)
         hmm_posteriors = self.calc_all_posteriors()
 
-        for t in range(max_T+1):
+        for t in range(max_T):
             # Loop over the full sequence and compute surprisal iteratively
             self.t = t
             if t == 0:
@@ -213,10 +189,10 @@ def main(seq, hidden, n_states, model_type,
          prob_regime_init, prob_obs_init, prob_obs_change, prob_regime_change,
          save_results=False, title="temp", verbose=False):
     # II: Compute Surprisal for all time steps for Stimulus Prob CatDir Model
-    CD_SBL_temp = SBL_Cat_Dir(seq, hidden, n_states, model_type, verbose)
-    results = CD_SBL_temp.compute_surprisal(max_T=CD_SBL_temp.T)
+    HMM_SBL_temp = SBL_HMM(seq, hidden, n_states, model_type)
+    results = HMM_SBL_temp.compute_surprisal(max_T=HMM_SBL_temp.T)
 
-    time = results[:,0]
+    time = results[:, 0]
     sequence = results[:, 1]
     hidden = results[:, 2]
     PS = results[:, 2]

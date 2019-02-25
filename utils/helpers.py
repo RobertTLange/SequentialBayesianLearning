@@ -11,7 +11,10 @@ import tables
 results_dir = os.getcwd() + "/results/"
 
 
-def normalize(a):
+def normalize(a, catch_id=None):
+    if catch_id is not None:
+        mean_surp = np.delete(a, catch_id, 0).mean()
+        a[catch_id] = mean_surp
     return (a - np.min(a))/np.ptp(a)
 
 

@@ -23,22 +23,26 @@ def preproc_surprisal(SP, AP, TP):
     time = SP["time"]
     hidden = SP["hidden"]
     sequence = SP["sequence"]
+    sequence[sequence == 2] = 0.5
+    hidden[hidden == 2] = 0.5
 
-    PS = [normalize(SP["predictive_surprise"]),
-          normalize(AP["predictive_surprise"]),
-          normalize(TP["predictive_surprise"])]
-    BS = [normalize(SP["bayesian_surprise"]),
-          normalize(AP["bayesian_surprise"]),
-          normalize(TP["bayesian_surprise"])]
-    CS = [normalize(SP["confidence_corrected_surprise"]),
-          normalize(AP["confidence_corrected_surprise"]),
-          normalize(TP["confidence_corrected_surprise"])]
+    catch_id = np.argwhere(sequence == 0.5)
+
+    PS = [normalize(SP["predictive_surprise"], catch_id),
+          normalize(AP["predictive_surprise"], catch_id),
+          normalize(TP["predictive_surprise"], catch_id)]
+    BS = [normalize(SP["bayesian_surprise"], catch_id),
+          normalize(AP["bayesian_surprise"], catch_id),
+          normalize(TP["bayesian_surprise"], catch_id)]
+    CS = [normalize(SP["confidence_corrected_surprise"], catch_id),
+          normalize(AP["confidence_corrected_surprise"], catch_id),
+          normalize(TP["confidence_corrected_surprise"], catch_id)]
 
     return time, hidden, sequence, PS, BS, CS
 
 
 def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
-                  save_pic=False):
+                  max_t=800, save_pic=False):
 
     time, hidden, sequence, PS, BS, CS = preproc_surprisal(SP, AP, TP)
 
@@ -46,16 +50,16 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
     fig.suptitle('SBL {} Agent'.format(title), fontsize=12)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    ax[0].set_xlim([0, max(time)])
+    ax[0].set_xlim([0, max_t])
     ax[0].set_ylim([-0.2, 1.2])
     ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=10)
-    ax[0].scatter(time, hidden, s=0.5)
+    ax[0].scatter(time[:max_t], hidden[:max_t], s=0.5)
     ax[0].set_xticks([], [])
 
-    ax[1].set_xlim([0, max(time)])
+    ax[1].set_xlim([0, max_t])
     ax[1].set_ylim([-0.2, 1.2])
     ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=10)
-    ax[1].scatter(time, sequence, s=0.5)
+    ax[1].scatter(time[:max_t], sequence[:max_t], s=0.5)
     ax[1].set_xticks([], [])
 
     # Plot initial layout that persists (isn't redrawn)
@@ -63,15 +67,15 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
     sub_t = ["Stimulus Probability", "Alternation Probability",
              "Transition Probability"]
     for i in range(2, 5):
-        ax[i].set_xlim([0, max(time)])
+        ax[i].set_xlim([0, max_t])
         ax[i].set_ylim([-0.2, 1.2])
         if i == 2:
             ax[i].set_ylim([-0.2, 1.5])
-        ax[i].plot(time, PS[i-2], c="r",
+        ax[i].plot(time[:max_t], PS[i-2][:max_t], c="r",
                    label=r"Predictive Surprise: $PS(o_t)$")
-        ax[i].plot(time, BS[i-2], c="b",
+        ax[i].plot(time[:max_t], BS[i-2][:max_t], c="b",
                    label=r"Bayesian Surprise: $BS(o_t)$")
-        ax[i].plot(time, CS[i-2], c="g",
+        ax[i].plot(time[:max_t], CS[i-2][:max_t], c="g",
                    label=r"Confidence-Corrected Surprise: $CS(o_t)$")
         ax[i].set_title("{} Model".format(sub_t[i-2]), fontsize=10)
         if i == 2:

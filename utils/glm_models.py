@@ -56,7 +56,8 @@ def run_model_estimation(int_point, y_elec, surprise_reg=None,
 def Null_model(y_elec):
     with pm.Model() as mdl_null:
         b0 = pm.Normal('b0', mu=0, sd=100)
-        y_est = b0
+        b1 = pm.Normal('b1', mu=0, sd=100)
+        y_est = b0 + b1 * np.ones(y_elec.shape[0])
         # sigma_y = pm.InverseGamma('sigma_y', alpha=1, beta=1)
         sigma_y = pm.HalfCauchy('sigma', beta=10)
         likelihood = pm.Normal('likelihood', mu=y_est, sd=sigma_y,
