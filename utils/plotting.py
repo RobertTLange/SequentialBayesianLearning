@@ -150,3 +150,5 @@ def heatmap_lme(lme_array, x_labels, y_labels,
 
     fig.colorbar(im, cax=cax)
     ax.set_title(title)
+    ax.set_xlabel("Inter-Stimulus Time Interval")
+    ax.set_ylabel("Regressor Model")

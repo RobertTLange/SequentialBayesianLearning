@@ -7,3 +7,8 @@ data
 OLD
 logs
 *.pem
+*.tex
+*.sty
+*.key
+*.bib
+report/figures

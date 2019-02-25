@@ -160,7 +160,7 @@ def get_electrode_data(eeg_data, block_id, elec_id,
 
 
 class ExperimentLog():
-    def __init__(self, num_subjects, num_blocks, elec_of_interest,
+    def __init__(self, subject_id, num_blocks, elec_of_interest,
                  save_fname=None):
         """
         Log Tree Structure
@@ -173,13 +173,12 @@ class ExperimentLog():
 
         # Initialize all the groups in hdf5 object
         h5f = tables.open_file(self.save_fname, mode="a")
-        for i in range(num_subjects):
-            sub_i = h5f.create_group("/", "subject_" + str(i))
-            for j in range(num_blocks):
-                block_j = h5f.create_group("/" + "subject_" + str(i),
-                                           "block_" + str(j))
-                for elec_name, elec_num in elec_of_interest.items():
-                    elec = h5f.create_group("/" + "subject_" + str(i) + "/block_" + str(j), "elec_" + elec_name)
+        sub_i = h5f.create_group("/", "subject_" + str(subject_id))
+        for j in range(num_blocks):
+            block_j = h5f.create_group("/" + "subject_" + str(subject_id),
+                                       "block_" + str(j))
+            for elec_name, elec_num in elec_of_interest.items():
+                elec = h5f.create_group("/" + "subject_" + str(subject_id) + "/block_" + str(j), "elec_" + elec_name)
         h5f.flush()
         h5f.close()
 
@@ -222,12 +221,58 @@ def process_tbt_logs(results_dir, num_blocks, regressor_names,
         for j in range(num_blocks):
             # Loop over blocks and and regressors - temporarily store lmes
             g_block = g_sub + "/block_" + str(j) + "/elec_" + elec_name
+            null_lme = np.array([t for t in h5f.root[g_block + "/Null"]])
+
             for reg in regressor_names:
-                out = [t for t in h5f.root[g_block + "/" + reg]]
-                results_temp[reg].append(out)
+                out = np.array([t for t in h5f.root[g_block + "/" + reg]])
+                results_temp[reg].append((out-null_lme).tolist())
         h5f.close()
         for reg in regressor_names:
             # Average across blocks and add for each subject
             results_temp[reg] = np.mean(np.array(results_temp[reg]), axis=0)
             results_all[reg] += results_temp[reg]
     return y_tw, results_all
+
+
+def get_decoding_targets(sample_files, subject_id, num_blocks):
+    """
+    Load all stimulus sequences from sample_files for given subject and num of blocks
+    Output: num_blocks x trials array of stimuli
+    """
+    for block_id in range(num_blocks):
+        sample, meta = load_obj("data/" + sample_files[subject_id][block_id] + ".mat")
+        stim_seq = sample[:, 2]
+
+        if block_id == 0:
+            y = np.expand_dims(stim_seq, axis=0)
+        else:
+            y = np.vstack((y, np.expand_dims(stim_seq, axis=0)))
+    return y.reshape(num_blocks*y.shape[1])
+
+
+def get_decoding_data(eeg_data, num_blocks, eoi_list,
+                      inter_stim_interval, percent_resolution):
+    """
+    Load all regressors from specific electrode list and reshape array
+    Output: (num_blocks x trials) x sample points x electrodes array,
+            block_id array, time window of samples
+    """
+    for block_id in range(num_blocks):
+        X_elec, y_tw = get_electrode_data(eeg_data, block_id, eoi_list,
+                                          inter_stim_interval,
+                                          percent_resolution, verbose=False)
+
+        if block_id == 0:
+            X_block = np.expand_dims(X_elec, axis=0)
+        else:
+            X_block = np.vstack((X_block, np.expand_dims(X_elec, axis=0)))
+
+    num_trials = X_block.shape[1]
+    num_recs = X_block.shape[2]
+
+    elems = np.arange(0, num_blocks, 1)
+    block_ids = np.repeat(elems, num_trials)
+
+    X_reshaped = X_block.reshape(num_blocks*num_trials,
+                                 num_recs, len(eoi_list))
+    return X_reshaped, block_ids, y_tw
