@@ -76,9 +76,11 @@ def main(subject_id, eoi, inter_stim_interval, sampling_rate,
         # Loop over ELECTRODES OF INTEREST
         for elec_name, elec_id in eoi.items():
             # Get the block- and electrode-specific eeg data
-            y_elec, y_tw = get_electrode_data(eeg_data, block_id, elec_id,
-                                              inter_stim_interval, sampling_rate,
-                                              verbose=False)
+            y_elec, y_tw, bad_trials = get_electrode_data(eeg_data, block_id,
+                                                          elec_id,
+                                                          inter_stim_interval,
+                                                          sampling_rate,
+                                                          verbose=False)
             # Get null model once for a block
             # (PS-AP as filler - parallelize does not work with None regressor)
             start = time.time()

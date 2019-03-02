@@ -12,6 +12,10 @@ results_dir = os.getcwd() + "/results/"
 
 
 def normalize(a, catch_id=None):
+    """
+    Normalize an array a to lie within [0, 1] interval
+    Catch_id - Exclude large surprises from rare catch trial
+    """
     if catch_id is not None:
         mean_surp = np.delete(a, catch_id, 0).mean()
         a[catch_id] = mean_surp
@@ -19,11 +23,17 @@ def normalize(a, catch_id=None):
 
 
 def save_obj(obj, title):
+    """
+    Save an object as a pickle file
+    """
     with open(title + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 
 def load_obj(title):
+    """
+    Load an object that is either .mat or .pkl file
+    """
     filename, file_extension = os.path.splitext(title)
     if file_extension == ".mat":
         out = sio.loadmat(title)
@@ -40,7 +50,8 @@ def load_obj(title):
 
 
 def kl_general(p, q):
-    """Compute the KL divergence between two discrete probability distributions
+    """
+    Compute the KL divergence between two discrete probability distributions
     The calculation is done directly using the Kullback-Leibler divergence,
     KL( p || q ) = sum_{x} p(x) ln( p(x) / q(x) )
     Natural logarithm is used!
@@ -51,7 +62,8 @@ def kl_general(p, q):
 
 
 def kl_dir(alphas, betas):
-    """Compute the KL divergence between two Dirichlet probability distributions
+    """
+    Compute the KL divergence between two Dirichlet probability distributions
     """
     alpha_0 = alphas.sum()
     beta_0 = betas.sum()
@@ -64,6 +76,9 @@ def kl_dir(alphas, betas):
 
 
 def draw_dirichlet_params(alphas):
+    """
+    Draw an 8-dim discrete probability array from the Dirichlet distribution
+    """
     if len(alphas) != 8:
         raise ValueError("Provide correct size of concentration params")
     return np.random.dirichlet((alphas), 1).transpose()
@@ -77,6 +92,12 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     sampling_rate = 512
     num_inter_stim_rec = int(sampling_rate *
                              (inter_stim_interval[1] - inter_stim_interval[0]))  # round down!
+
+    trial_coding_lookup = {11: [0, 0],
+                           12: [1, 0],
+                           21: [0, 1],
+                           22: [1, 1],
+                           33: [2, 2]}
     # Subselect eeg + recording timestamps from raw data object in .mat
     """
     Structure of eeg_raw/eeg_times obj: Sampling rate of 512 points per sec
@@ -115,10 +136,23 @@ def get_electrode_data(eeg_data, block_id, elec_id,
     stop_idx_block = np.where(event_times[:, 2] < time_int[1])
     block_event_idx = np.intersect1d(start_idx_block, stop_idx_block)
 
-    # Select event times based on start/stop of block
+    # Select bad trial indicator, stim_seq, event times based on len of block
+    bad_trials = event_times[block_event_idx, 0].astype(int)
+    seq = event_times[block_event_idx, 1].astype(int)
     events_in_block = event_times[block_event_idx, 2]
+
     if len(events_in_block) != (num_trials/num_blocks):
+        print("Events detected: {}".format(len(events_in_block)))
+        print("Should be: {}".format(num_trials/num_blocks))
         raise "Something is wrong with data shape: Wrong number of events!"
+
+    # Rename the trial sequences
+    stim_seq = np.empty((len(events_in_block)))
+    hidden_seq = np.empty((len(events_in_block)))
+
+    for t in range(len(events_in_block)):
+        stim_seq[t] = trial_coding_lookup[seq[t]][0]
+        hidden_seq[t] = trial_coding_lookup[seq[t]][1]
 
     events_int_start = events_in_block + inter_stim_interval[0]
     events_int_stop = events_in_block + inter_stim_interval[1]
@@ -159,7 +193,8 @@ def get_electrode_data(eeg_data, block_id, elec_id,
 
     # return the eeg array subselected for block, time window, and sampling
     # return the exact time points in sample_time_window array
-    return eeg_data_out[:, sample_idx], sample_time_window
+    # return array which indicates if trials are bad
+    return eeg_data_out[:, sample_idx], sample_time_window, bad_trials
 
 
 class ExperimentLog():
@@ -261,9 +296,10 @@ def get_decoding_data(eeg_data, num_blocks, eoi_list,
             block_id array, time window of samples
     """
     for block_id in range(num_blocks):
-        X_elec, y_tw = get_electrode_data(eeg_data, block_id, eoi_list,
-                                          inter_stim_interval,
-                                          percent_resolution, verbose=False)
+        X_elec, y_tw, bad_t = get_electrode_data(eeg_data, block_id, eoi_list,
+                                                 inter_stim_interval,
+                                                 percent_resolution,
+                                                 verbose=False)
 
         if block_id == 0:
             X_block = np.expand_dims(X_elec, axis=0)
