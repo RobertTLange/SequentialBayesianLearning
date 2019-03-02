@@ -303,15 +303,17 @@ def get_decoding_data(eeg_data, num_blocks, eoi_list,
 
         if block_id == 0:
             X_block = np.expand_dims(X_elec, axis=0)
+            bad_trials = np.expand_dims(bad_t, axis=0)
         else:
             X_block = np.vstack((X_block, np.expand_dims(X_elec, axis=0)))
+            bad_trials = np.vstack((bad_trials, np.expand_dims(bad_t, axis=0)))
 
     num_trials = X_block.shape[1]
     num_recs = X_block.shape[2]
 
     elems = np.arange(0, num_blocks, 1)
     block_ids = np.repeat(elems, num_trials)
-
+    bad_trials_reshaped = bad_trials.reshape(num_blocks*num_trials)
     X_reshaped = X_block.reshape(num_blocks*num_trials,
                                  num_recs, len(eoi_list))
-    return X_reshaped, block_ids, y_tw
+    return X_reshaped, bad_trials_reshaped, block_ids, y_tw
