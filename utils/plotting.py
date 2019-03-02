@@ -89,7 +89,8 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
 
 
 def plot_free_energy(fe_ts_list, windowSize=5,
-                     labels=["Robust Ridge Regr.",
+                     labels=["Null-Model",
+                             "Robust Ridge Regr.",
                              "Hierarchical GLM",
                              "B-NN (10 Hiddens)"],
                      save_fname=None):

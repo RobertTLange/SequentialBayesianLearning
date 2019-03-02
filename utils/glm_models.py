@@ -15,7 +15,7 @@ logger_theano = logging.getLogger('theano.gof.compilelock')
 logger_theano.setLevel(logging.ERROR)
 
 
-def run_model_estimation(int_point, y_elec, surprise_reg=None,
+def run_model_estimation(int_point, y_elec, bad_trials, surprise_reg=None,
                          model_type="OLS"):
     """
     Inputs: int_point - sampling point in interstimulus interval
@@ -31,13 +31,13 @@ def run_model_estimation(int_point, y_elec, surprise_reg=None,
 
     # Select specific model OLS/Hierarchical
     if model_type == "OLS":
-        model = OLS_model(y_std, surprise_reg_std)
+        model = OLS_model(y_std, bad_trials, surprise_reg_std)
     elif model_type == "Hierarchical":
-        model = Hierarchical_model(y_std, surprise_reg_std)
+        model = Hierarchical_model(y_std, bad_trials, surprise_reg_std)
     elif model_type == "Bayesian-MLP":
-        model = Bayesian_NN(y_std, surprise_reg_std)
+        model = Bayesian_NN(y_std, bad_trials, surprise_reg_std)
     elif model_type == "Null":
-        model = Null_model(y_std)
+        model = Null_model(y_std, bad_trials)
     else:
         raise "Provide a valid model type"
 
@@ -53,11 +53,14 @@ def run_model_estimation(int_point, y_elec, surprise_reg=None,
     return -approx.hist
 
 
-def Null_model(y_elec):
+def Null_model(y_elec, bad_trials):
     with pm.Model() as mdl_null:
         b0 = pm.Normal('b0', mu=0, sd=100)
         b1 = pm.Normal('b1', mu=0, sd=100)
-        y_est = b0 + b1 * np.ones(y_elec.shape[0])
+        b_bt = pm.Normal('b_bt', mu=0, sd=100)
+
+        # Define Linear null model
+        y_est = b0 + b1 * np.ones(y_elec.shape[0]) + b_bt * bad_trials
         # sigma_y = pm.InverseGamma('sigma_y', alpha=1, beta=1)
         sigma_y = pm.HalfCauchy('sigma', beta=10)
         likelihood = pm.Normal('likelihood', mu=y_est, sd=sigma_y,
@@ -65,15 +68,16 @@ def Null_model(y_elec):
     return mdl_null
 
 
-def OLS_model(y_elec, surprise):
-    data = dict(y_elec=y_elec, surprise=surprise)
+def OLS_model(y_elec, bad_trials, surprise):
+    data = dict(y_elec=y_elec, surprise=surprise, bad_trials=bad_trials)
     with pm.Model() as mdl_ols:
         # Define Normal priors on Params - Ridge
         b0 = pm.Normal('b0', mu=0, sd=100)
         b1 = pm.Normal('b1', mu=0, sd=100)
+        b_bt = pm.Normal('b_bt', mu=0, sd=100)
 
         # Define Linear model
-        y_est = b0 + b1 * data['surprise']
+        y_est = b0 + b1 * data['surprise'] + b_bt * data['bad_trials']
 
         # Define Normal LH with HalfCauchy noise (fat tails, equiv to HalfT 1DoF)
         sigma_y = pm.HalfCauchy('sigma_y', beta=10)
@@ -82,29 +86,38 @@ def OLS_model(y_elec, surprise):
     return mdl_ols
 
 
-def Hierarchical_model(y_elec, surprise):
-    data = dict(y_elec=y_elec, surprise=surprise)
+def Hierarchical_model(y_elec, bad_trials, surprise):
+    data = dict(y_elec=y_elec, surprise=surprise, bad_trials=bad_trials)
     with pm.Model() as mdl_hierarchical:
-        eta = pm.Normal('eta', 0, 1, shape=y_elec.shape[0])
-        mu = pm.Normal('mu', 0, 1e6)
-        tau = pm.HalfCauchy('tau', 5)
-        theta = pm.Deterministic('theta', mu + tau*eta)
+        mu0 = pm.Normal('mu0', mu=0., sd=100**2)
+        sigma0 = pm.HalfCauchy('sigma0', 5)
+        mu1 = pm.Normal('mu1', mu=0., sd=100**2)
+        sigma1 = pm.HalfCauchy('sigma1', 5)
+        mu_bt = pm.Normal('mu_bt', mu=0., sd=100**2)
+        sigma_bt = pm.HalfCauchy('sigma_bt', 5)
+
+        b0 = pm.Normal('b0', mu=mu0, sd=sigma0, shape=y_elec.shape[0])
+        b1 = pm.Normal('b1', mu=mu1, sd=sigma1, shape=y_elec.shape[0])
+        b_bt = pm.Normal('b_bt', mu=mu_bt, sd=sigma_bt, shape=y_elec.shape[0])
+
+        y_est = b0 + b1 * data['surprise'] + b_bt * data['bad_trials']
 
         sigma_y = pm.HalfCauchy('sigma', beta=10)
-        likelihood = pm.Normal('likelihood', mu=theta, sd=sigma_y,
+        likelihood = pm.Normal('likelihood', mu=y_est, sd=sigma_y,
                                observed=data['y_elec'])
     return mdl_hierarchical
 
 
-def Bayesian_NN(y_elec, surprise, n_hidden=10):
+def Bayesian_NN(y_elec, surprise, bad_trials, n_hidden=10):
+    regressors = np.hstack((surprise, bad_trials))
     # Initialize random weights between each layer
-    init_hidden = np.random.randn(surprise.shape[0], n_hidden).astype(float)
+    init_hidden = np.random.randn(2*surprise.shape[0], n_hidden).astype(float)
     init_out = np.random.randn(n_hidden).astype(float)
 
     with pm.Model() as mdl_nn:
         # Weights from input to hidden layer
         weights_in_hidden = pm.Normal('w_in_hidden', 0, sd=1,
-                                      shape=(surprise.shape[0], n_hidden),
+                                      shape=(2*surprise.shape[0], n_hidden),
                                       testval=init_hidden)
 
         # Weights from hidden layer to output
@@ -112,7 +125,7 @@ def Bayesian_NN(y_elec, surprise, n_hidden=10):
                                        shape=(n_hidden,), testval=init_out)
 
         # Build neural-network using tanh activation function
-        act_hidden = pm.math.tanh(pm.math.dot(surprise, weights_in_hidden))
+        act_hidden = pm.math.tanh(pm.math.dot(regressors, weights_in_hidden))
         act_out = pm.math.tanh(pm.math.dot(act_hidden, weights_hidden_out))
 
         # Linear Regression -> Normal Likelihood with robust Cauchy prior of sd
