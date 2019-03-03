@@ -221,7 +221,7 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
             elif sequence[j, 1] == 1: coloring += "b"
             else: coloring += "r"
 
-        ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring)
+        ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring[:200])
         ax[0].set_title("First 200 Trials of Length {} Block".format(sequence.shape[0]))
 
         # Add extra info as additional lines with label in legend
@@ -240,7 +240,6 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
             pass
         ax[1].legend(ncol=3, fontsize="small")
         ax[1].set_title("Descriptive Statistics and Train Length Histogram")
-
 
         def plot(event, seq_length=seq_length, title=title,
                  sequence=sequence, seq_gen_temp=seq_gen_temp,
@@ -265,11 +264,11 @@ def sample_and_save(seq_gen_temp, seq_length, title, matlab_out, plot_seq):
                     elif sequence[j, 1] == 1: coloring += "b"
                     else: coloring += "r"
 
-                ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring)
+                ax[0].scatter(np.arange(200), sequence[:200, 2], s=4.5, c=coloring[:200])
                 ax[0].set_title("First 200 Trials of Length {} Block".format(sequence.shape[0]))
 
-                ax[1].hist(reg_0s[:, 2], density=True, label=r"Regime 0 ($s_t=0$)", alpha=0.5, range=(0, 20), color="g")
-                ax[1].hist(reg_1s[:, 2], density=True, label=r"Regime 1 ($s_t=1$)", alpha=0.5, range=(0, 20), color="b")
+                ax[1].hist(reg_0s[:, 2], density=True, label=r"Regime 0 ($s_t=0$)", alpha=0.5, range=(0, reg_1s[:, 2].max()), color="g")
+                ax[1].hist(reg_1s[:, 2], density=True, label=r"Regime 1 ($s_t=1$)", alpha=0.5, range=(0, reg_1s[:, 2].max()), color="b")
                 # Add extra info as additional lines with label in legend
                 ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 0)$: {}".format(round(stats["emp_reg0_sp"], 3)))
                 ax[1].plot([], [], ' ', label=r"$p(o_t = 1|s_t = 1)$: {}".format(round(stats["emp_reg1_sp"], 3)))

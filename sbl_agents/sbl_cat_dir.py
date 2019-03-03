@@ -61,7 +61,8 @@ class SBL_Cat_Dir():
 
         if self.type == "SP":
             for i in range(self.no_obs):
-                self.alphas[i] = 1 + np.dot(exp_weighting, self.stim_ind[:self.t+1, i])
+                self.alphas[i] = 1 + np.dot(exp_weighting,
+                                            self.stim_ind[:self.t+1, i])
 
         elif self.type == "AP":
             if self.t == 0:
@@ -69,8 +70,10 @@ class SBL_Cat_Dir():
                 self.alphas[0] = 1
                 self.alphas[1] = 1
             else:
-                self.alphas[0] = 1 + np.dot(exp_weighting, self.repetition[:self.t+1])
-                self.alphas[1] = 1 + np.dot(exp_weighting, 1-self.repetition[:self.t+1])
+                self.alphas[0] = 1 + np.dot(exp_weighting,
+                                            self.repetition[:self.t+1])
+                self.alphas[1] = 1 + np.dot(exp_weighting,
+                                            1-self.repetition[:self.t+1])
 
         elif self.type == "TP":
             # print(self.sequence[:t], self.transition_from_0[:t], self.transition_from_1[:t])

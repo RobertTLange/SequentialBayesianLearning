@@ -19,7 +19,30 @@ def smooth(ts, windowSize):
     return ts_MA
 
 
-def preproc_surprisal(SP, AP, TP):
+def plot_sequence(seq, hidden, title, save_fname):
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(12, 12))
+    fig.suptitle(title, fontsize=12)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    ax[0].set_xlim([0, max_t])
+    ax[0].set_ylim([-0.2, 1.2])
+    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=10)
+    ax[0].scatter(time[:max_t], hidden[:max_t], s=0.5)
+    ax[0].set_xticks([], [])
+
+    ax[1].set_xlim([0, max_t])
+    ax[1].set_ylim([-0.2, 1.2])
+    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=10)
+    ax[1].scatter(time[:max_t], sequence[:max_t], s=0.5)
+    ax[1].set_xticks([], [])
+
+    if save_fname:
+        plt.savefig(save_fname, dpi=300)
+    else:
+        plt.show()
+
+
+def preproc_surprisal(SP, AP, TP, norm):
     time = SP["time"]
     hidden = SP["hidden"]
     sequence = SP["sequence"]
@@ -28,25 +51,37 @@ def preproc_surprisal(SP, AP, TP):
 
     catch_id = np.argwhere(sequence == 0.5)
 
-    PS = [normalize(SP["predictive_surprise"], catch_id),
-          normalize(AP["predictive_surprise"], catch_id),
-          normalize(TP["predictive_surprise"], catch_id)]
-    BS = [normalize(SP["bayesian_surprise"], catch_id),
-          normalize(AP["bayesian_surprise"], catch_id),
-          normalize(TP["bayesian_surprise"], catch_id)]
-    CS = [normalize(SP["confidence_corrected_surprise"], catch_id),
-          normalize(AP["confidence_corrected_surprise"], catch_id),
-          normalize(TP["confidence_corrected_surprise"], catch_id)]
-
+    if norm:
+        PS = [normalize(SP["predictive_surprise"], catch_id),
+              normalize(AP["predictive_surprise"], catch_id),
+              normalize(TP["predictive_surprise"], catch_id)]
+        BS = [normalize(SP["bayesian_surprise"], catch_id),
+              normalize(AP["bayesian_surprise"], catch_id),
+              normalize(TP["bayesian_surprise"], catch_id)]
+        CS = [normalize(SP["confidence_corrected_surprise"], catch_id),
+              normalize(AP["confidence_corrected_surprise"], catch_id),
+              normalize(TP["confidence_corrected_surprise"], catch_id)]
+    else:
+        PS = [SP["predictive_surprise"],
+              AP["predictive_surprise"],
+              TP["predictive_surprise"]]
+        BS = [SP["bayesian_surprise"],
+              AP["bayesian_surprise"],
+              TP["bayesian_surprise"]]
+        CS = [SP["confidence_corrected_surprise"],
+              AP["confidence_corrected_surprise"],
+              TP["confidence_corrected_surprise"]]
     return time, hidden, sequence, PS, BS, CS
 
 
-def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
-                  max_t=800, save_pic=False):
+def plot_surprise(SP, AP, TP, normalize=True,
+                  title="Categorical-Dirichlet",
+                  max_t=800, save_fname=None):
 
-    time, hidden, sequence, PS, BS, CS = preproc_surprisal(SP, AP, TP)
+    time, hidden, sequence, PS, BS, CS = preproc_surprisal(SP, AP, TP,
+                                                           normalize)
 
-    fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(8, 8))
+    fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(12, 12))
     fig.suptitle('SBL {} Agent'.format(title), fontsize=12)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
@@ -68,9 +103,9 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
              "Transition Probability"]
     for i in range(2, 5):
         ax[i].set_xlim([0, max_t])
-        ax[i].set_ylim([-0.2, 1.2])
+        ax[i].set_ylim([-0.2, np.max(PS[i-2][:max_t] + 0.2)])
         if i == 2:
-            ax[i].set_ylim([-0.2, 1.5])
+            ax[i].set_ylim([-0.2, np.max(PS[i-2][:max_t] + 0.2)])
         ax[i].plot(time[:max_t], PS[i-2][:max_t], c="r",
                    label=r"Predictive Surprise: $PS(o_t)$")
         ax[i].plot(time[:max_t], BS[i-2][:max_t], c="b",
@@ -82,8 +117,9 @@ def plot_surprise(SP, AP, TP, title="Categorical-Dirichlet",
             ax[i].legend(loc="upper center", prop={'size': 6}, ncol=3)
         if i != 4:
             ax[i].set_xticks([], [])
-    if save_pic:
-        plt.savefig(fig_dir + 'sbl_cd_comparison.png', dpi=300)
+    if save_fname is not None:
+        plt.savefig(save_fname, dpi=300)
+        print("Saved figure to {}".format(save_fname))
     else:
         plt.show()
 
