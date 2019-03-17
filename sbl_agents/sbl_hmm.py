@@ -6,41 +6,6 @@ from hmmlearn import hmm
 from utils.helpers import *
 
 
-def hmm_action_selection(model, state_seq, sample=False):
-    """
-    Input: HMM model and a state_seq
-    Output: Computes p(x_t|x_t-1,...,x_0)
-    TODO: Make option to greedly select next action!
-    """
-    valid_successors, moves = get_valid_succesor(wm, state_seq[-1])
-    coded_successors = string_to_code(valid_successors, observations)[0]
-    current_v_state, lengths = string_to_code([state_seq], observations)
-
-    # One HMM State Transition
-    logprob, posteriors = model.score_samples(current_v_state, lengths)
-    cond_distr = np.matmul(model.emissionprob_.T,
-                           np.matmul(model.transmat_.T, posteriors.T))
-
-    full_distr_next_v_state = cond_distr[:, -1].ravel()
-    distr_next_v_state = full_distr_next_v_state[coded_successors].ravel()/sum(full_distr_next_v_state[coded_successors]).ravel()
-    n_valid_v_states = len(distr_next_v_state)
-
-    # Sample or argmax
-    if sample:
-        next_move = np.random.choice(n_valid_v_states, 1, p=distr_next_v_state)[0]
-    else:
-        next_move = np.argmax(distr_next_v_state)
-
-    # next_v_state = valid_successors[0][next_move]
-    return next_move, full_distr_next_v_state
-
-
-    startprob, transmat, emissionprob = init_hmm(no_obs=3, n_states=2)
-    model = hmm_posterior(seq.reshape(1, -1).T,
-                          startprob, transmat, emissionprob,
-                          get_ic=False)
-
-
 class SBL_HMM():
     """
     DESCRIPTION: Hidden Markov Model Bayesian Sequential Learning Agent
@@ -105,7 +70,7 @@ class SBL_HMM():
 
         return startprob, transmat, emissionprob
 
-    def calc_all_posteriors(self):
+    def calc_all_posteriors(self, t):
         """
         Input: Unique state id transformed data, length per ep trace and HMM inits
         Output: The trained HMM model with all attributes
@@ -119,22 +84,27 @@ class SBL_HMM():
         model.emissionprob = emissionprob
 
         if self.type == "SP":
-            temp = self.sequence[:self.T+1].reshape(1, -1).T
+            make_valid_multi_sample = np.unique(self.sequence).reshape(1, -1).T
+            temp = self.sequence[:t].reshape(1, -1).T
         elif self.type == "AP":
-            temp = self.repetition[:self.T+1].reshape(1, -1).T.astype(int)
+            make_valid_multi_sample = np.array([0, 1]).reshape(1, -1).T
+            temp = self.repetition[:t].reshape(1, -1).T.astype(int)
 
-        self.model = model.fit(temp)
-        logprob, posteriors = model.score_samples(temp)
+        valid_seq = np.vstack((make_valid_multi_sample, temp))
+        self.model = model.fit(valid_seq)
+        logprob, posteriors = model.score_samples(valid_seq)
         return posteriors
 
     def posterior_predictive(self, posterior):
         return np.matmul(self.model.emissionprob_.T,
-                         np.matmul(self.model.transmat_.T, posterior.T))
+                         np.matmul(self.model.transmat_.T,
+                                   posterior.T))
 
     def naive_posterior(self, posterior):
         return self.posterior_predictive(posterior)/self.posterior_predictive(posterior).sum(axis=0)
 
     def predictive_surprisal(self, posterior, ind):
+        # print(self.posterior_predictive(posterior), -np.log(self.posterior_predictive(posterior)[ind]))
         return -np.log(self.posterior_predictive(posterior)[ind])
 
     def bayesian_surprisal(self, posterior_old, posterior):
@@ -149,25 +119,23 @@ class SBL_HMM():
         results = []
 
         hmm_init_posterior = np.repeat(1./self.n_states, self.n_states)
-        hmm_posteriors = self.calc_all_posteriors()
 
         for t in range(max_T):
             # Loop over the full sequence and compute surprisal iteratively
-            self.t = t
             if t == 0:
                 posterior_old = hmm_init_posterior
-            else:
-                posterior_old = hmm_posteriors[t-1]
 
-            posterior = hmm_posteriors[t]
+            posterior = self.calc_all_posteriors(t)[-1]
+            # print(t, posterior)
 
             if self.type == "SP":
-                ind = int(self.sequence[self.t])
+                ind = int(self.sequence[t])
             elif self.type == "AP":
-                ind = int(self.repetition[self.t])
+                ind = int(self.repetition[t])
             elif self.type == "TP":
                 # from and to stimulus transition
-                ind = (np.argmax(self.transitions[self.t, :]), np.argmax(self.stim_ind[self.t, :]))
+                ind = (np.argmax(self.transitions[t, :]),
+                       np.argmax(self.stim_ind[t, :]))
             else:
                 raise "Provide right model type (SP, AP, TP)"
 
@@ -175,12 +143,12 @@ class SBL_HMM():
             BS_temp = self.bayesian_surprisal(posterior_old, posterior)
             CS_temp = self.corrected_surprisal(posterior)
 
+            posterior_old = posterior[:]
             if verbose_surprisal:
                 print("{} - t={}: PS={}, BS={}, CS={}".format(self.type, t+1, round(PS_temp, 4),  round(BS_temp, 4), round(CS_temp, 4)))
 
             temp = [t, self.sequence[t], self.hidden[t], PS_temp, BS_temp, CS_temp]
-            distr_params = list(posterior.reshape(1, -1)[0])
-            results.append(temp + distr_params)
+            results.append(temp)
         print("{}: Done computing surprisal measures for all {} timesteps.".format(self.type, self.T))
         return np.asarray(results)
 
@@ -195,9 +163,9 @@ def main(seq, hidden, n_states, model_type,
     time = results[:, 0]
     sequence = results[:, 1]
     hidden = results[:, 2]
-    PS = results[:, 2]
-    BS = results[:, 3]
-    CS = results[:, 4]
+    PS = results[:, 3]
+    BS = results[:, 4]
+    CS = results[:, 5]
 
     results_formatted = {"time": time,
                          "sequence": sequence,

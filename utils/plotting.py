@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.helpers import normalize
+from utils.helpers import normalize, standardize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 fig_dir = os.getcwd() + "/figures/"
@@ -19,24 +19,33 @@ def smooth(ts, windowSize):
     return ts_MA
 
 
-def plot_sequence(seq, hidden, title, save_fname):
+def plot_sequence(sequence, hidden, max_t, save_fname=None):
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(12, 12))
-    fig.suptitle(title, fontsize=12)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    sequence = sequence.astype(float)
+    hidden = hidden.astype(float)
+
+    idx = np.argwhere(sequence == 2)
+    sequence[idx] = 0.5
+    hidden[idx] = 0.5
+    time = np.arange(max_t)
 
     ax[0].set_xlim([0, max_t])
     ax[0].set_ylim([-0.2, 1.2])
-    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=10)
-    ax[0].scatter(time[:max_t], hidden[:max_t], s=0.5)
+    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=15)
+    ax[0].scatter(time[:max_t], hidden[:max_t], s=10)
     ax[0].set_xticks([], [])
+    ax[0].set_yticks([], [])
 
     ax[1].set_xlim([0, max_t])
     ax[1].set_ylim([-0.2, 1.2])
-    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=10)
-    ax[1].scatter(time[:max_t], sequence[:max_t], s=0.5)
-    ax[1].set_xticks([], [])
+    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=15)
+    ax[1].scatter(time[:max_t], sequence[:max_t], s=10)
+    ax[1].set_yticks([], [])
+    ax[1].set_xlabel(r"Trial $t$", fontsize=15)
 
-    if save_fname:
+    fig.tight_layout()
+    if save_fname is not None:
         plt.savefig(save_fname, dpi=300)
     else:
         plt.show()
@@ -74,6 +83,58 @@ def preproc_surprisal(SP, AP, TP, norm):
     return time, hidden, sequence, PS, BS, CS
 
 
+def plot_surprise2(surprise, preproc="normalize",
+                   sub_t="Stimulus Probablity Model",
+                   title="Categorical-Dirichlet",
+                   max_t=800, save_fname=None):
+
+    time = surprise["time"]
+    hidden = surprise["hidden"]
+    sequence = surprise["sequence"]
+    sequence[sequence == 2] = 0.5
+    hidden[hidden == 2] = 0.5
+
+    PS =  normalize(surprise["predictive_surprise"])
+    BS =  normalize(surprise["bayesian_surprise"])
+
+    # PS =  surprise["predictive_surprise"]
+    # BS =  surprise["bayesian_surprise"]
+
+    hidden[hidden == 1] = 1.1
+    hidden[hidden == 0] = -0.1
+
+    sequence[sequence == 1] = 1.2
+    sequence[sequence == 0] = -0.2
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    fig.suptitle('SBL {} Agent'.format(title), fontsize=16)
+
+    # Plot the observed trial sequence and hidden states
+    ax.scatter(time[:max_t], hidden[:max_t], s=4, label=r"Regime: $s_t$", c="#16738F")
+    ax.scatter(time[:max_t], sequence[:max_t], s=4, label=r"Stimulus: $o_t$", c="#B31329")
+
+    ax.set_xlim([0, max_t])
+    ax.set_ylim([-0.3, np.max(PS[:max_t]) + 0.35])
+    ax.set_yticks([0, 0.5, 1])
+    ax.plot(time[:max_t], PS[:max_t], c="r",
+            label=r"Predictive Surprise: $PS(o_t)$")
+    ax.plot(time[:max_t], BS[:max_t], c="b",
+            label=r"Bayesian Surprise: $BS(o_t)$")
+
+    ax.set_title(sub_t, fontsize=15)
+    ax.legend(loc="center right", prop={'size': 12}, ncol=1)
+
+    ax.set_xlabel("Trial (t)", fontsize=15)
+    ax.set_ylabel("Surprise Regressors", fontsize=15)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    if save_fname is not None:
+        plt.savefig(save_fname, dpi=600)
+        print("Saved figure to {}".format(save_fname))
+    else:
+        plt.show()
+
+
 def plot_surprise(SP, AP, TP, normalize=True,
                   title="Categorical-Dirichlet",
                   max_t=800, save_fname=None):
@@ -82,20 +143,22 @@ def plot_surprise(SP, AP, TP, normalize=True,
                                                            normalize)
 
     fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(12, 12))
-    fig.suptitle('SBL {} Agent'.format(title), fontsize=12)
+    fig.suptitle('SBL {} Agent'.format(title), fontsize=16)
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     ax[0].set_xlim([0, max_t])
     ax[0].set_ylim([-0.2, 1.2])
-    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=10)
-    ax[0].scatter(time[:max_t], hidden[:max_t], s=0.5)
+    ax[0].set_title(r"Hidden State Sequence: $s_1, \dots, s_t$", fontsize=15)
+    ax[0].scatter(time[:max_t], hidden[:max_t], s=4)
     ax[0].set_xticks([], [])
+    ax[0].set_yticks([], [])
 
     ax[1].set_xlim([0, max_t])
     ax[1].set_ylim([-0.2, 1.2])
-    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=10)
-    ax[1].scatter(time[:max_t], sequence[:max_t], s=0.5)
+    ax[1].set_title(r"Observation Sequence: $o_1, \dots, o_t$", fontsize=15)
+    ax[1].scatter(time[:max_t], sequence[:max_t], s=4)
     ax[1].set_xticks([], [])
+    ax[1].set_yticks([], [])
 
     # Plot initial layout that persists (isn't redrawn)
     # First row - Sequence of Trials
@@ -110,15 +173,15 @@ def plot_surprise(SP, AP, TP, normalize=True,
                    label=r"Predictive Surprise: $PS(o_t)$")
         ax[i].plot(time[:max_t], BS[i-2][:max_t], c="b",
                    label=r"Bayesian Surprise: $BS(o_t)$")
-        ax[i].plot(time[:max_t], CS[i-2][:max_t], c="g",
-                   label=r"Confidence-Corrected Surprise: $CS(o_t)$")
-        ax[i].set_title("{} Model".format(sub_t[i-2]), fontsize=10)
+        # ax[i].plot(time[:max_t], CS[i-2][:max_t], c="g",
+        #            label=r"Confidence-Corrected Surprise: $CS(o_t)$")
+        ax[i].set_title("{} Model".format(sub_t[i-2]), fontsize=15)
         if i == 2:
-            ax[i].legend(loc="upper center", prop={'size': 6}, ncol=3)
+            ax[i].legend(loc="upper right", prop={'size': 12}, ncol=1)
         if i != 4:
             ax[i].set_xticks([], [])
     if save_fname is not None:
-        plt.savefig(save_fname, dpi=300)
+        plt.savefig(save_fname, dpi=600)
         print("Saved figure to {}".format(save_fname))
     else:
         plt.show()

@@ -11,6 +11,10 @@ import tables
 results_dir = os.getcwd() + "/results/"
 
 
+def standardize(a):
+    return (a - np.mean(a))/np.std(a)
+
+
 def normalize(a, catch_id=None):
     """
     Normalize an array a to lie within [0, 1] interval
