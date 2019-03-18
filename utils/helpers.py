@@ -34,12 +34,12 @@ def save_obj(obj, title):
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 
-def load_obj(title):
+def load_obj(title, surprise=False):
     """
     Load an object that is either .mat or .pkl file
     """
     filename, file_extension = os.path.splitext(title)
-    if file_extension == ".mat":
+    if file_extension == ".mat" and not surprise:
         out = sio.loadmat(title)
         sample = out["C"][0][0][5][0][0][0]
         meta = {}
@@ -48,6 +48,16 @@ def load_obj(title):
         meta["prob_obs_change"] = out["C"][0][0][5][0][0][3]
         meta["prob_regime_change"] = out["C"][0][0][5][0][0][4]
         return sample, meta
+    elif file_extension == ".mat" and surprise:
+        out = sio.loadmat(title)
+        meta = {}
+        meta['time'] = out['SP_CD'][0][0][0][0]
+        meta['sequence'] = out['SP_CD'][0][0][1][0]
+        meta['hidden'] = out['SP_CD'][0][0][2][0]
+        meta['predictive_surprise'] = out['SP_CD'][0][0][3][0]
+        meta['bayesian_surprise'] = out['SP_CD'][0][0][4][0]
+        meta['confidence_corrected_surprise'] = out['SP_CD'][0][0][5][0]
+        return meta
     else:
         with open(title, 'rb') as f:
             return pickle.load(f)

@@ -1,8 +1,10 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.helpers import normalize, standardize
+from utils.helpers import normalize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from scipy import stats
 
 fig_dir = os.getcwd() + "/figures/"
 
@@ -94,17 +96,15 @@ def plot_surprise2(surprise, preproc="normalize",
     sequence[sequence == 2] = 0.5
     hidden[hidden == 2] = 0.5
 
-    PS =  normalize(surprise["predictive_surprise"])
-    BS =  normalize(surprise["bayesian_surprise"])
+    PS =  stats.zscore(surprise["predictive_surprise"])
+    BS =  stats.zscore(surprise["bayesian_surprise"])
 
     # PS =  surprise["predictive_surprise"]
     # BS =  surprise["bayesian_surprise"]
-
-    hidden[hidden == 1] = 1.1
-    hidden[hidden == 0] = -0.1
-
-    sequence[sequence == 1] = 1.2
-    sequence[sequence == 0] = -0.2
+    hidden[hidden == 1] = np.max(BS[:max_t]) + 0.3
+    hidden[hidden == 0] = np.min(PS[:max_t]) - 0.3
+    sequence[sequence == 1] = np.max(BS[:max_t]) + 0.9
+    sequence[sequence == 0] = np.min(PS[:max_t]) - 0.9
 
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.suptitle('SBL {} Agent'.format(title), fontsize=16)
@@ -114,8 +114,8 @@ def plot_surprise2(surprise, preproc="normalize",
     ax.scatter(time[:max_t], sequence[:max_t], s=4, label=r"Stimulus: $o_t$", c="#B31329")
 
     ax.set_xlim([0, max_t])
-    ax.set_ylim([-0.3, np.max(PS[:max_t]) + 0.35])
-    ax.set_yticks([0, 0.5, 1])
+    ax.set_ylim([np.min(PS[:max_t]) -1.2, np.max(BS[:max_t]) + 1.2])
+    # ax.set_yticks([0, 0.5, 1])
     ax.plot(time[:max_t], PS[:max_t], c="r",
             label=r"Predictive Surprise: $PS(o_t)$")
     ax.plot(time[:max_t], BS[:max_t], c="b",
