@@ -98,9 +98,8 @@ def plot_surprise2(surprise, preproc="normalize",
 
     PS =  stats.zscore(surprise["predictive_surprise"])
     BS =  stats.zscore(surprise["bayesian_surprise"])
+    CS =  stats.zscore(surprise["confidence_corrected_surprise"])
 
-    # PS =  surprise["predictive_surprise"]
-    # BS =  surprise["bayesian_surprise"]
     hidden[hidden == 1] = np.max(BS[:max_t]) + 0.3
     hidden[hidden == 0] = np.min(PS[:max_t]) - 0.3
     sequence[sequence == 1] = np.max(BS[:max_t]) + 0.9
@@ -117,9 +116,11 @@ def plot_surprise2(surprise, preproc="normalize",
     ax.set_ylim([np.min(PS[:max_t]) -1.2, np.max(BS[:max_t]) + 1.2])
     # ax.set_yticks([0, 0.5, 1])
     ax.plot(time[:max_t], PS[:max_t], c="r",
-            label=r"Predictive Surprise: $PS(o_t)$")
+            label=r"Predictive Surprise: $PS(y_t)$")
     ax.plot(time[:max_t], BS[:max_t], c="b",
-            label=r"Bayesian Surprise: $BS(o_t)$")
+            label=r"Bayesian Surprise: $BS(y_t)$")
+    ax.plot(time[:max_t], CS[:max_t], c="g",
+            label=r"Confidence-Corrected Surprise: $CS(y_t)$")
 
     ax.set_title(sub_t, fontsize=15)
     ax.legend(loc="center right", prop={'size': 12}, ncol=1)
