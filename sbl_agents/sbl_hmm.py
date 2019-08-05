@@ -77,23 +77,39 @@ class SBL_HMM():
         - Option: If desired get AIC and BIC for model as well
         """
         startprob, transmat, emissionprob = self.init_hmm()
+        random_state = 420
+
         # Uniform Initialization
-        model = hmm.MultinomialHMM(n_components=self.n_states)
+        model = hmm.MultinomialHMM(n_components=self.n_states, random_state=random_state)
         model.startprob = startprob
         model.transmat = transmat
         model.emissionprob = emissionprob
 
+        model_naive = hmm.MultinomialHMM(n_components=self.n_states, random_state=random_state)
+        model_naive.startprob = startprob
+        model_naive.transmat = transmat
+        model_naive.emissionprob = emissionprob
+
         if self.type == "SP":
             make_valid_multi_sample = np.unique(self.sequence).reshape(1, -1).T
-            temp = self.sequence[:t].reshape(1, -1).T
+            temp = self.sequence[:t+1].reshape(1, -1).T
+            temp_naive = self.sequence[t]
         elif self.type == "AP":
             make_valid_multi_sample = np.array([0, 1]).reshape(1, -1).T
-            temp = self.repetition[:t].reshape(1, -1).T.astype(int)
+            temp = self.repetition[:t+1].reshape(1, -1).T.astype(int)
+            temp_naive = self.repetition[t]
 
         valid_seq = np.vstack((make_valid_multi_sample, temp))
+        valid_seq_naive = np.vstack((make_valid_multi_sample, temp_naive))
+
         self.model = model.fit(valid_seq)
         logprob, posteriors = model.score_samples(valid_seq)
-        return posteriors
+
+        # compute naive posteriors
+        self.model_naive = model_naive.fit(valid_seq_naive)
+        logprob_naive, posteriors_naive = self.model_naive.score_samples(valid_seq_naive)
+
+        return posteriors, posteriors_naive
 
     def posterior_predictive(self, posterior):
         return np.matmul(self.model.emissionprob_.T,
@@ -110,9 +126,8 @@ class SBL_HMM():
     def bayesian_surprisal(self, posterior_old, posterior):
         return kl_general(posterior_old, posterior)
 
-    def corrected_surprisal(self, posterior):
-        # kl_general(self.naive_posterior(posterior), posterior)
-        return 0
+    def corrected_surprisal(self, posterior_old, posterior_naive):
+        return kl_general(posterior_old, posterior_naive)
 
     def compute_surprisal(self, max_T, verbose_surprisal=False):
         print("{}: Computing different surprisal measures for {} timesteps.".format(self.type, max_T))
@@ -125,8 +140,10 @@ class SBL_HMM():
             if t == 0:
                 posterior_old = hmm_init_posterior
 
-            posterior = self.calc_all_posteriors(t)[-1]
-            # print(t, posterior)
+            posteriors, posteriors_naive = self.calc_all_posteriors(t)
+            posterior = posteriors[-1]
+            posterior_naive = posteriors_naive[-1]
+
 
             if self.type == "SP":
                 ind = int(self.sequence[t])
@@ -141,7 +158,7 @@ class SBL_HMM():
 
             PS_temp = self.predictive_surprisal(posterior, ind)
             BS_temp = self.bayesian_surprisal(posterior_old, posterior)
-            CS_temp = self.corrected_surprisal(posterior)
+            CS_temp = self.corrected_surprisal(posterior_old, posterior_naive)
 
             posterior_old = posterior[:]
             if verbose_surprisal:
@@ -219,13 +236,13 @@ if __name__ == "__main__":
     else:
         sample = load_obj(results_dir + args.sample_file + ".mat")
 
-    seq = sample["sample_output"][:, 2]
-    hidden = sample["sample_output"][:, 1]
+    seq = sample[:, 2]
+    hidden = sample[:, 1]
 
-    prob_regime_init = sample["prob_regime_init"]
-    prob_obs_init = sample["prob_obs_init"]
-    prob_obs_change = sample["prob_obs_change"]
-    prob_regime_change = sample["prob_regime_change"]
+    prob_regime_init = []
+    prob_obs_init = []
+    prob_obs_change = []
+    prob_regime_change = []
 
     n_states = args.n_states
     model = args.model
@@ -250,3 +267,4 @@ if __name__ == "__main__":
         pythonw seq_gen.py -t S1_800 -obs_change 0.75 0.15 0.85 0.25 0.5 0.75 0.25 0.5 -order 2 -matlab -seq 500
         pythonw sbl_hmm.py -file S1_800 -S -model SP
     """
+
