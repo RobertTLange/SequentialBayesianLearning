@@ -30,8 +30,10 @@ def save_obj(obj, title):
     """
     Save an object as a pickle file
     """
-    with open(title + '.pkl', 'wb') as f:
-        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+    #with open(title + '.pkl', 'wb') as f:
+    #    pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+    with open(title + '.mat', 'wb') as f:
+        sio.savemat(f, obj)
 
 
 def load_obj(title, surprise=False):
@@ -41,13 +43,13 @@ def load_obj(title, surprise=False):
     filename, file_extension = os.path.splitext(title)
     if file_extension == ".mat" and not surprise:
         out = sio.loadmat(title)
-        sample = out["C"][0][0][5][0][0][0]
-        meta = {}
-        meta["prob_obs_init"] = out["C"][0][0][5][0][0][1]
-        meta["prob_regime_init"] = out["C"][0][0][5][0][0][2]
-        meta["prob_obs_change"] = out["C"][0][0][5][0][0][3]
-        meta["prob_regime_change"] = out["C"][0][0][5][0][0][4]
-        return sample, meta
+        sample = out["C"]
+        #meta = {}
+        #meta["prob_obs_init"] = out["C"][0][0][5][0][0][1]
+        #meta["prob_regime_init"] = out["C"][0][0][5][0][0][2]
+        #meta["prob_obs_change"] = out["C"][0][0][5][0][0][3]
+        #%meta["prob_regime_change"] = out["C"][0][0][5][0][0][4]
+        return sample
     elif file_extension == ".mat" and surprise:
         out = sio.loadmat(title)
         meta = {}
@@ -71,7 +73,13 @@ def kl_general(p, q):
     Natural logarithm is used!
     """
     if (p == 0.).sum() + (q == 0.).sum() > 0:
-        raise "Zero bins found"
+        print("Careful: Zero bins found, setting 0 to 1e-200 to proceed")
+        for i in range(len(p)):
+            if p[i] == 0.:
+                p[i] = 1e-200
+            if q[i] == 0.:
+                q[i] = 1e-200
+
     return (p*(np.log(p) - np.log(q))).sum()
 
 
