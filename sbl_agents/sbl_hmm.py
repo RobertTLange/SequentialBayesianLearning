@@ -16,7 +16,7 @@ class SBL_HMM():
     OUTPUT: Predictive surprisal, Bayesian surprisal, Confidence-corrected surprisal
     [t, o_t, s_t, Prediction_Surprise, Bayesian_Surprise, Confidence_Corrected_Surprise]
     """
-    def __init__(self, seq, hidden, n_states, model_type="SP", verbose=False):
+    def __init__(self, seq, hidden, n_states, model_type, verbose=False):
         # Initialize SBL-learned sequence and exponential forgetting parameter
         self.sequence = seq.astype(int)
         self.hidden = hidden
@@ -29,6 +29,7 @@ class SBL_HMM():
         self.no_obs = np.unique(seq).shape[0]
         self.stim_ind = np.zeros((self.T, self.no_obs))
 
+
         # Construct matrix where col represents binary ind of specific stim at t
         for t in range(self.T):
             self.stim_ind[t, self.sequence[t]] = 1
@@ -40,18 +41,43 @@ class SBL_HMM():
                 self.repetition[t] = 1
 
         # TP: Generate T-dim vectors indicating transition from state i
-        self.transitions = np.zeros((self.T, self.no_obs))
+        self.TP_adjust = 0
+        self.all_transitions = np.zeros(self.T)
         for t in range(1, self.T):
-            self.transitions[t, 0] = (self.sequence[t-1] == 0)
-            self.transitions[t, 1] = (self.sequence[t-1] == 1)
-            self.transitions[t, 2] = (self.sequence[t-1] == 2)
+            # ALL transitions
+            if self.sequence[t-1] == 0 and self.sequence[t] == 0:
+                self.all_transitions[t] = 0
+            if self.sequence[t-1] == 0 and self.sequence[t] == 1:
+                self.all_transitions[t] = 1
+            if self.sequence[t-1] == 0 and self.sequence[t] == 2:
+                self.all_transitions[t] = 2
+            if self.sequence[t-1] == 1 and self.sequence[t] == 0:
+                self.all_transitions[t] = 3
+            if self.sequence[t-1] == 1 and self.sequence[t] == 1:
+                self.all_transitions[t] = 4
+            if self.sequence[t-1] == 1 and self.sequence[t] == 2:
+                self.all_transitions[t] = 5
+            if self.sequence[t-1] == 2 and self.sequence[t] == 0:
+                self.all_transitions[t] = 6
+            if self.sequence[t-1] == 2 and self.sequence[t] == 1:
+                self.all_transitions[t] = 7
+            if self.sequence[t-1] == 2 and self.sequence[t] == 2:
+                self.all_transitions[t] = 8
+
+        # self.TP_sequences = np.zeros((self.T, self.no_obs))
+        # for t in range(1, self.T):
+        #     trans_from = self.sequence[t-1]
+        #     trans_to = self.sequence[t] + 1
+        #     self.TP_sequences[t, trans_from] = trans_to
 
         if self.type == "SP":
             self.posterior = np.ones(self.no_obs)/self.no_obs
         elif self.type == "AP":
             self.posterior = np.ones(2)/2
         elif self.type == "TP":
-            self.posterior = np.ones((self.no_obs, self.no_obs))/self.no_obs
+            self.posterior = np.ones(self.no_obs*self.no_obs)/(self.no_obs*self.no_obs)
+            # split HMM
+            # self.posterior = np.ones(self.no_obs+1)/self.no_obs+1
         else:
             raise "Provide right model type (SP, AP, TP)"
 
@@ -66,6 +92,10 @@ class SBL_HMM():
             temp = np.repeat(1./self.no_obs, self.no_obs)
         elif self.type == "AP":
             temp = np.repeat(1./2, 2)
+        elif self.type == "TP":
+            temp = np.repeat(1./(self.no_obs*self.no_obs), self.no_obs*self.no_obs)
+            # split HMM
+            # temp = np.repeat(1./(self.no_obs+1), self.no_obs+1)
         emissionprob = np.repeat([temp], self.n_states, axis=0)
 
         return startprob, transmat, emissionprob
@@ -93,11 +123,23 @@ class SBL_HMM():
         if self.type == "SP":
             make_valid_multi_sample = np.unique(self.sequence).reshape(1, -1).T
             temp = self.sequence[:t+1].reshape(1, -1).T
-            temp_naive = self.sequence[t]
+            temp_naive = int(self.sequence[t])
         elif self.type == "AP":
             make_valid_multi_sample = np.array([0, 1]).reshape(1, -1).T
             temp = self.repetition[:t+1].reshape(1, -1).T.astype(int)
-            temp_naive = self.repetition[t]
+            temp_naive = int(self.repetition[t])
+        elif self.type == "TP":
+            make_valid_multi_sample = np.arange(self.no_obs*self.no_obs).reshape(1, -1).T
+            temp = self.all_transitions[:t+1].reshape(1, -1).T.astype(int)
+            temp_naive = int(self.all_transitions[t])
+            # split HMM
+            # if self.TP_adjust == 0:
+            #    seq_index = self.sequence[t-1]
+            # elif self.TP_adjust == 1:
+            #    seq_index = self.sequence[t]
+            # make_valid_multi_sample = np.arange(self.no_obs+1).reshape(1, -1).T
+            # temp = self.TP_sequences[:t+1, seq_index].reshape(1, -1).T.astype(int)
+            # temp_naive = int(self.TP_sequences[t, seq_index])
 
         valid_seq = np.vstack((make_valid_multi_sample, temp))
         valid_seq_naive = np.vstack((make_valid_multi_sample, temp_naive))
@@ -116,11 +158,7 @@ class SBL_HMM():
                          np.matmul(self.model.transmat_.T,
                                    posterior.T))
 
-    def naive_posterior(self, posterior):
-        return self.posterior_predictive(posterior)/self.posterior_predictive(posterior).sum(axis=0)
-
     def predictive_surprisal(self, posterior, ind):
-        # print(self.posterior_predictive(posterior), -np.log(self.posterior_predictive(posterior)[ind]))
         return -np.log(self.posterior_predictive(posterior)[ind])
 
     def bayesian_surprisal(self, posterior_old, posterior):
@@ -144,15 +182,22 @@ class SBL_HMM():
             posterior = posteriors[-1]
             posterior_naive = posteriors_naive[-1]
 
-
             if self.type == "SP":
                 ind = int(self.sequence[t])
             elif self.type == "AP":
                 ind = int(self.repetition[t])
             elif self.type == "TP":
                 # from and to stimulus transition
-                ind = (np.argmax(self.transitions[t, :]),
-                       np.argmax(self.stim_ind[t, :]))
+                ind = int(self.all_transitions[t])
+                # Split HMM
+                # ind = int(self.TP_sequences[t, self.sequence[t-1]])
+
+                # overwrite posterior_old for TP
+                if t > 0:
+                    self.TP_adjust = 1  # 0 = index for o_t-1, 1 = index for o_t
+                    temp, temp_naive = self.calc_all_posteriors(t-1)
+                    posterior_old = temp[-1]
+                    self.TP_adjust = 0
             else:
                 raise "Provide right model type (SP, AP, TP)"
 
@@ -198,6 +243,8 @@ def main(seq, hidden, n_states, model_type,
     if save_results:
         save_obj(results_formatted, results_dir + title)
         print("Saved in File: {}".format(results_dir + title))
+    else:
+        return PS, BS, CS
 
 
 def test_agent(seq, hidden, n_states, model_type, verbose=False):
@@ -267,4 +314,3 @@ if __name__ == "__main__":
         pythonw seq_gen.py -t S1_800 -obs_change 0.75 0.15 0.85 0.25 0.5 0.75 0.25 0.5 -order 2 -matlab -seq 500
         pythonw sbl_hmm.py -file S1_800 -S -model SP
     """
-
