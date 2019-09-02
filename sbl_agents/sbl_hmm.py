@@ -21,14 +21,11 @@ class SBL_HMM():
         self.sequence = seq.astype(int)
         self.hidden = hidden
         self.T = len(seq)
-
         self.type = model_type
         self.n_states = n_states
         self.verbose = verbose
-
         self.no_obs = np.unique(seq).shape[0]
         self.stim_ind = np.zeros((self.T, self.no_obs))
-
 
         # Construct matrix where col represents binary ind of specific stim at t
         for t in range(self.T):
