@@ -27,7 +27,7 @@ kiwisolver==1.0.1
 Mako==1.0.7
 MarkupSafe==1.1.0
 matplotlib==3.0.2
-mistune==0.8.4
+mistune==2.0.3
 mkl-fft==1.0.10
 mkl-random==1.0.2
 nbconvert==5.4.0
